@@ -25,6 +25,7 @@ Access to the e-inkDashboard by address:
 
 `http://YourSignalKhost:YourSignalKport/e-inkdashboard/`  
 
+At the border of the screen is always visible the mark with general direction.
 
  The e-inkDashboard allows you to set a visual and sound signal for dangerous events, such as shallow or speed.
  ![Dashboard alarms](screenshots/db3.jpg)<br>
