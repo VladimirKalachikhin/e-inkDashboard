@@ -51,7 +51,7 @@ plugin.start = function (options, restartPlugin) {
     const fs = require("fs");
     const exec = require('child_process');
 
-	const dashboardHost = exec.execSync('hostname --all-ip-addresses').toString().split('\n')[0].trim(); 	// иначе, как вызовом системной команды адрес не узнать. Это ли не жопа?
+	const dashboardHost = exec.execSync('hostname --all-ip-addresses').toString().trim().split(' ')[0]; 	// иначе, как вызовом системной команды адрес не узнать. Это ли не жопа?
 	const dashboardPort = options.dashboardPort;
 	const indexhtml = `<!DOCTYPE html >
 <html>
