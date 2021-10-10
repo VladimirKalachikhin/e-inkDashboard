@@ -1,18 +1,8 @@
 module.exports = function (app) {
 /**/
-const logError =
-app.error ||
-(err => {
-  console.error(err)
-})
-const debug =
-app.debug ||
-(msg => {
-  console.log(msg)
-})
 
 var plugin = {};
-var versionTXT = '0.0.1';
+var versionTXT = '0.0.3';
 
 plugin.id = 'e-inkDashboard';
 plugin.name = 'e-inkDashboard';
@@ -68,8 +58,66 @@ plugin.start = function (options, restartPlugin) {
 </html>
 	`;
 	fs.writeFileSync(__dirname+'/public/index.html',indexhtml);
+	
+	
+	//let meta = app.getSelfPath('navigation.position.value');
+	//app.debug(meta);
+	/*
+	app.handleMessage(plugin.id, {
+		updates: [
+			{
+				values: [
+					{
+						path: 'environment.depth.belowTransducer.meta',
+						value: {
+							/*
+							"displayName": "Shallow hazard",
+							"longName": "Shallow hazard",
+							"shortName": "Shallow hazard",
+							"description": "Alarm by the hazard of shallow",
+							"units": "m",
+							"timeout": 1,
+							"displayScale": {"lower": 1.5, "upper": 5, "type": "linear"},
+							"alertMethod": ["visual"],
+							"warnMethod": ["visual"],
+							"alarmMethod": ["sound", "visual"],
+							*//*
+							"emergencyMethod": ["sound", "visual"],
+							"zones": [
+								//{"lower": 31, "state": "normal"},
+								{"lower": 0, "upper": 3, "state": "emergency"},
+								//{"lower": 4, "upper": 5, "state": "alert", "message": "Shallow!"},
+								//{"lower": 2, "upper": 4, "state": "alarm", "message": "Very shallow!"},
+								//{"upper": 2, "state": "emergency", "message": "Ground."}
+							]
+						}
+					}
+				]
+			}
+		]
+	})
+	
+	app.handleMessage(plugin.id, {
+		updates: [
+			{
+				values: [
+					{
+						//path: 'notifications.environment.depth.belowTransducer',
+						path: 'notifications.navigation.mob',
+						value: {
+							'state': 'emergency',
+							'method': ['sound'],
+							'message': 'Бе-бе-бе'
+						}
+					}
+				]
+			}
+		]
+	})
+	*/
+	
 
-	// функция, реализующая функциональность сервера. Поскольку в node.js всё через жопу -- нельзя заставить уже имеющийся сервер выполнять дополнительные функции, нодо организовать свой. Ага, на своём порту, б...
+	// функция, реализующая функциональность сервера. Поскольку в node.js всё через жопу -- нельзя заставить уже имеющийся сервер выполнять дополнительные функции, надо организовать свой. Ага, на своём порту, б...
 	function dashboardServer(request, response) { 	
 		//app.debug('request:',request.headers['accept-language']);
 		
@@ -356,7 +404,7 @@ plugin.start = function (options, restartPlugin) {
 			}
 		}
 
-		const rumbNames = [' N ','NNE',' NE ','ENE',' E ','ESE',' SE ','SSE',' S ','SSW',' SW ','WSW',' W ','WNW',' NW ','NNW'];
+		const rumbNames = ['&nbsp;&nbsp;N&nbsp;&nbsp;','NNE','&nbsp;&nbsp;NE&nbsp;','ENE','&nbsp;&nbsp;E&nbsp;&nbsp;','ESE','&nbsp;&nbsp;SE&nbsp;','SSE','&nbsp;&nbsp;S&nbsp;&nbsp;','SSW','&nbsp;SW&nbsp;&nbsp;','WSW','&nbsp;&nbsp;W&nbsp;&nbsp;','WNW','&nbsp;NW&nbsp;&nbsp;','NNW'];
 		let rumbNum;
 		if(mode.magnetic && (tpv['magtrack']!==null)) rumbNum = Math.round(tpv['magtrack']/22.5);
 		else if(tpv['track']!==null) rumbNum = Math.round(tpv['track']/22.5);
@@ -448,8 +496,8 @@ plugin.start = function (options, restartPlugin) {
 	<td style="width:20%;height:20%;"><span class='big_mid_symbol wb'>${currRumb[15]}</span></td>
 	<td style="width:20%;height:20%;"><span class='big_mid_symbol wb'>${currRumb[0]}</span></td>
 	<td style="width:20%;height:20%;"><span class='big_mid_symbol wb'>${currRumb[2]}</span></td>
-</tr>
 	<td style="width:20%;height:20%;"><span class='big_mid_symbol wb'>${currRumb[1]}</span></td>
+</tr>
 <tr>
 	<td style="width:20%;height:20%;"><span class='big_mid_symbol wb'>${currRumb[13]}</span></td>
 	<td rowspan="3" colspan="3"></td>
@@ -457,10 +505,12 @@ plugin.start = function (options, restartPlugin) {
 </tr>
 <tr>
 	<td style="width:20%;height:20%;"><span class='big_mid_symbol wb'>${currRumb[12]}</span></td>
+	<td rowspan="3" colspan="3"></td>
 	<td style="width:20%;height:20%;"><span class='big_mid_symbol wb'>${currRumb[4]}</span></td>
 </tr>
 <tr>
 	<td style="width:20%;height:20%;"><span class='big_mid_symbol wb'>${currRumb[11]}</span></td>
+	<td rowspan="3" colspan="3"></td>
 	<td style="width:20%;height:20%;"><span class='big_mid_symbol wb'>${currRumb[5]}</span></td>
 </tr>
 <tr>
@@ -489,26 +539,22 @@ plugin.start = function (options, restartPlugin) {
 	<div id='dashboard' class='
 		`;
 		if(alarm) responseBody += "wb alarm";
-		responseBody += `
-	' style='text-align:center; padding: 0; margin: 0;'>
+		responseBody += `	' style='text-align:center; padding: 0; margin: 0;'>
 		<span class='big_symbol' style='vertical-align:middle;'>
 			${symbol}
 		</span>
 	</div>
 	<div style='text-align:center; bottom:0; padding: 0; margin: 0;'>
 		<a href="${uri}&magnetic=${magneticTurn}" style="text-decoration:none;">
-			<button class='mid_symbol' style='width:14%;vertical-align:middle;' 
-		`;
+			<button class='mid_symbol' style='width:14%;vertical-align:middle;' `;
 		if(!tpv['magtrack']) responseBody += 'disabled';
-		responseBody += `
-			 >
-				<div style="position:relative;
-		`;
-		if(!mode.magnetic) responseBody +=  "opacity:0.5;";
-		responseBody += `
-				">
-		`;
-		if(tpv['magvar']) responseBody += `<div  class='small_symbol' style='position:absolute;text-align:center;'>${dashboardMagVarTXT}</div><span style='font-size:75%;'>${Math.round(tpv['magvar'])}</span>`;	
+		responseBody += `>
+				<div style="position:relative; `;
+		if(!tpv['magtrack']) responseBody +=  "opacity:0.5;";
+		responseBody += `">`;
+		if(tpv['magvar']) responseBody += `
+				<div  class='small_symbol' style='position:absolute;text-align:center;'>${dashboardMagVarTXT}</div>
+				<span style='font-size:75%;'>${Math.round(tpv['magvar'])}</span> `;	
 		else responseBody += "<img src='static/img/compass.png' alt='magnetic course'>";
 		responseBody += `
 				</div>
@@ -548,8 +594,6 @@ plugin.start = function (options, restartPlugin) {
 		response.setHeader('Content-Type', 'text/html; charset=utf-8');
 		response.write(responseBody);
 		response.end();
-
-		// END OF NEW STUFF
 	}; // end function dashboardServer
 	
 	const server = http.createServer(dashboardServer); 	// собственно, запустим сервер
