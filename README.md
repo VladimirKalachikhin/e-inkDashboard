@@ -1,6 +1,6 @@
 # e-ink Dashboard for Signal K [![License: CC BY-SA 4.0](https://img.shields.io/badge/License-CC%20BY--SA%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-sa/4.0/)
 
-## v. 0.0
+## v. 0.1
 The e-inkDashboard displaying some instruments, attached to Signal K on weak (and/or old) devices, such as e-ink readers.  
 Only browser needed. No fanciful javascript, no fanciful css.  
 
@@ -21,7 +21,7 @@ Linux. Signal K.
 ## Usage
 The screen image optimized to different screen resolutions and should look good from little to big screens.  
 The presence of the touch screen is assumed, and mode is switched by a tap to the next data type button on the screen.   You can use two or more devices to display different info.  
-For some devices with JavaScript you may set up some hardware keys to switch mode, magnetic or true course and opening alarm menu. Use <img src="img/settings.png" alt="Settings button" width="24px"> button on bottom of alarm menu to set up it. Default keys is:
+For some devices with JavaScript you may set up some hardware keys to switch mode, magnetic or true course and opening alarm menu. Use <img src="static/img/settings.png" alt="Settings button" width="24px"> button on bottom of alarm menu to set up it. Default keys is:
 
 * ArrowDown for next mode
 * ArrowUp for previous mode
