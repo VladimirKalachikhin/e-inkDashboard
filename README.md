@@ -13,19 +13,24 @@ Only browser needed. No fanciful javascript, no fanciful css.
 
  ![Dashboard velocity](screenshots/db1.jpg)<br>
  ![Dashboard depth](screenshots/db2.jpg)<br>
+At the border of the screen is always visible the mark with general direction.
 
 ## Compatibility
 Linux. Signal K.
 
 ## Usage
-Image optimized to different screen resolutions and should look good from little to big screens.  
+The screen image optimized to different screen resolutions and should look good from little to big screens.  
 The presence of the touch screen is assumed, and mode is switched by a tap to the next data type button on the screen.   You can use two or more devices to display different info.  
+For some devices with JavaScript you may set up some hardware keys to switch mode, magnetic or true course and opening alarm menu. Use <img src="img/settings.png" alt="Settings button" width="24px"> button on bottom of alarm menu to set up it. Default keys is:
 
+* ArrowDown for next mode
+* ArrowUp for previous mode
+* AltRight for alarm menu
+* KeyM for magnetic course switch
+ 
 Access to the e-inkDashboard by address:   
 
 `http://YourSignalKhost:YourSignalKport/e-inkdashboard/`  
-
-At the border of the screen is always visible the mark with general direction.
 
  The e-inkDashboard allows you to set a visual and sound signal for dangerous events, such as shallow or speed.
  ![Dashboard alarms](screenshots/db3.jpg)<br>

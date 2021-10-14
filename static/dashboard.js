@@ -9,3 +9,6 @@ function maxSpeedAlarm() {
 function minSpeedAlarm() {
 	setInterval(function(){snd.play();},1500)
 }
+function toHeadingAlarm() {
+	setInterval(function(){snd.play();},500)
+}
