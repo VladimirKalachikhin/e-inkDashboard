@@ -582,12 +582,10 @@ return matches ? decodeURIComponent(matches[1]) : undefined;
 </tr>
 <tr>
 	<td style="width:20%;height:20%;"><span class='big_mid_symbol wb'>${currRumb[12]}</span></td>
-	<td rowspan="3" colspan="3"></td>
 	<td style="width:20%;height:20%;"><span class='big_mid_symbol wb'>${currRumb[4]}</span></td>
 </tr>
 <tr>
 	<td style="width:20%;height:20%;"><span class='big_mid_symbol wb'>${currRumb[11]}</span></td>
-	<td rowspan="3" colspan="3"></td>
 	<td style="width:20%;height:20%;"><span class='big_mid_symbol wb'>${currRumb[5]}</span></td>
 </tr>
 <tr>
