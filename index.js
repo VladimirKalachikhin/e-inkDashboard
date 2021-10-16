@@ -2,7 +2,7 @@ module.exports = function (app) {
 /**/
 
 var plugin = {};
-var versionTXT = '0.0.3';
+var versionTXT = '';
 
 plugin.id = 'e-inkDashboard';
 plugin.name = 'e-inkDashboard';
@@ -304,8 +304,11 @@ plugin.start = function (options, restartPlugin) {
 			let theHeading;
 			if(mode.toHeadingMagnetic && (typeof(tpv.magtrack) !== 'undefined')) theHeading = tpv.magtrack;
 			else theHeading = tpv.track; 	// тревога прозвучит, даже если был указан магнитный курс, но его нет
-			//app.debug((mode.toHeadingValue - mode.toHeadingPrecision),'<',theHeading,'>',(mode.toHeadingValue + mode.toHeadingPrecision));
-			if((theHeading < (mode.toHeadingValue - mode.toHeadingPrecision)) || (theHeading > (mode.toHeadingValue + mode.toHeadingPrecision))) {
+			const minHeading = toHeadingValue - toHeadingPrecision;
+			if(minHeading<0) minHeading = minHeading+360;
+			const maxHeading = toHeadingValue + toHeadingPrecision;
+			if(maxHeading>=360) maxHeading = maxHeading-360;
+			if((theHeading < minHeading) || (theHeading > maxHeading)) {
 				mode.mode = 'track';
 				header = dashboardToHeadingAlarmTXT;
 				alarmJS = 'toHeadingAlarm();';
