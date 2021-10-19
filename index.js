@@ -41,7 +41,12 @@ plugin.start = function (options, restartPlugin) {
     const fs = require("fs");
     const exec = require('child_process');
 
-	const dashboardHost = exec.execSync('hostname --all-ip-addresses').toString().trim().split(' ')[0]; 	// иначе, как вызовом системной команды адрес не узнать. Это ли не жопа?
+	//const dashboardHost = exec.execSync('hostname --all-ip-addresses').toString().trim().split(' ')[0]; 	// иначе, как вызовом системной команды адрес не узнать. Это ли не жопа?
+	let dashboardHost = exec.execSync('ip -o -4 addr show scope global').toString(); 	// но, однако, нормальный вариант команды есть не во всех системах
+	const addrStart = dashboardHost.indexOf('inet')+4;
+	const addrEnd = dashboardHost.indexOf('/');
+	dashboardHost = dashboardHost.slice(addrStart,addrEnd).trim();
+	//app.debug(dashboardHost);
 	const dashboardPort = options.dashboardPort;
 	const indexhtml = `<!DOCTYPE html >
 <html>
