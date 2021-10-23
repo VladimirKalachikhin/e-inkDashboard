@@ -16,7 +16,7 @@ plugin.schema = {
 		dashboardPort: {
 			type: 'string',
 			title: 'port of dashboard',
-			description: `If this port is busy on your system, change it
+			description: `Open this port in the firewall. If this port is busy on your system, change it to other
 			`,
 			default: '3531'
 		},
@@ -305,13 +305,13 @@ plugin.start = function (options, restartPlugin) {
 				alarm = true;
 			}
 		}
+		let theHeading=null;
 		if(mode.toHeadingAlarm) {
-			let theHeading;
 			if(mode.toHeadingMagnetic && (typeof(tpv.magtrack) !== 'undefined')) theHeading = tpv.magtrack;
 			else theHeading = tpv.track; 	// тревога прозвучит, даже если был указан магнитный курс, но его нет
-			const minHeading = toHeadingValue - toHeadingPrecision;
+			const minHeading = mode.toHeadingValue - mode.toHeadingPrecision;
 			if(minHeading<0) minHeading = minHeading+360;
-			const maxHeading = toHeadingValue + toHeadingPrecision;
+			const maxHeading = mode.toHeadingValue + mode.toHeadingPrecision;
 			if(maxHeading>=360) maxHeading = maxHeading-360;
 			if((theHeading < minHeading) || (theHeading > maxHeading)) {
 				mode.mode = 'track';
@@ -377,7 +377,7 @@ plugin.start = function (options, restartPlugin) {
 		}
 		//app.debug('Exit cycle type=',type,'prevMode=',prevMode,"mode.mode=",mode.mode,'nextMode=',nextMode);
 
-		const rumbNames = ['&nbsp;&nbsp;N&nbsp;&nbsp;','NNE','&nbsp;&nbsp;NE&nbsp;','ENE','&nbsp;&nbsp;E&nbsp;&nbsp;','ESE','&nbsp;&nbsp;SE&nbsp;','SSE','&nbsp;&nbsp;S&nbsp;&nbsp;','SSW','&nbsp;SW&nbsp;&nbsp;','WSW','&nbsp;&nbsp;W&nbsp;&nbsp;','WNW','&nbsp;NW&nbsp;&nbsp;','NNW'];
+		const rumbNames = ['&nbsp;&nbsp;&nbsp;N&nbsp;&nbsp;&nbsp;','NNE','&nbsp;NE&nbsp;','ENE','&nbsp;&nbsp;E&nbsp;&nbsp;','ESE','&nbsp;SE&nbsp;','SSE','&nbsp;&nbsp;&nbsp;S&nbsp;&nbsp;&nbsp;','SSW','&nbsp;SW&nbsp;','WSW','&nbsp;&nbsp;W&nbsp;&nbsp;','WNW','&nbsp;NW&nbsp;','NNW'];
 		let rumbNum;
 		if(mode.magnetic && (tpv['magtrack']!==null)) rumbNum = Math.round(tpv['magtrack']/22.5);
 		else if(tpv['track']!==null) rumbNum = Math.round(tpv['track']/22.5);
@@ -386,6 +386,101 @@ plugin.start = function (options, restartPlugin) {
 		//app.debug("rumbNum=",rumbNum);
 		let currRumb = ['   ','   ','    ','   ','   ','   ','    ','   ','   ','   ','    ','   ','   ','   ','    ','   '];
 		currRumb[rumbNum] = rumbNames[rumbNum];
+
+		let percent=null, currDirectMark='', currTrackMark='';
+		if(mode.toHeadingAlarm) {
+			//mode.toHeadingValue =30;
+			// Метка указанного направления
+			if((mode.toHeadingValue>315)&&(mode.toHeadingValue<360)){
+				percent = 100 - (mode.toHeadingValue - 315)*100/90;
+				currDirectMark = `<img src='static/img/markNNW.png' style='display:block;position:fixed;top:0;right:${percent}%;' class='markVert'>`;
+			} 
+			else if(mode.toHeadingValue == 0){
+				currDirectMark = `<img src='static/img/markN.png' style='display:block;position:fixed;top:0;left:49.5%;' class='markVert'>`;
+			}
+			else if((mode.toHeadingValue>0)&&(mode.toHeadingValue<45)){
+				percent = (mode.toHeadingValue+45)*100/90;
+				currDirectMark = `<img src='static/img/markNNE.png' style='display: block;position: fixed;top:0;left:${percent}%;' class='markVert'>`;
+			}
+			else if(mode.toHeadingValue == 45){
+				currDirectMark = `<img src='static/img/markNE.png' style='display: block;position: fixed;top:0;right:0;' class='markVert'>`;
+			}
+			else if((mode.toHeadingValue > 45) && (mode.toHeadingValue < 90)){
+				percent = 100 - (mode.toHeadingValue-45)*100/90;
+				currDirectMark = `<img src='static/img/markENE.png' style='display: block;position: fixed;right:0;bottom:${percent}%;' class='markHor'>`;
+			}
+			else if(mode.toHeadingValue == 90){
+				currDirectMark = `<img src='static/img/markE.png' style='display: block;position: fixed;right:0;top:49%;' class='markHor'>`;
+			}
+			else if((mode.toHeadingValue > 90) && (mode.toHeadingValue < 135)){
+				percent = (mode.toHeadingValue-45)*100/90;
+				currDirectMark = `<img src='static/img/markESE.png' style='display: block;position: fixed;right:0;top:${percent}%;' class='markHor'>`;
+			}
+			else if(mode.toHeadingValue == 135){
+				currDirectMark = `<img src='static/img/markSE.png' style='display: block;position: fixed;bottom:0;right:0;' class='markHor'>`;
+			}
+			else if((mode.toHeadingValue>135)&&(mode.toHeadingValue<180)){
+				percent = 100 - (mode.toHeadingValue-135)*100/90;
+				currDirectMark = `<img src='static/img/markSSE.png' style='display: block;position: fixed;bottom:0;left:${percent}%;' class='markVert'>`;
+			}
+			else if(mode.toHeadingValue == 180){
+				currDirectMark = `<img src='static/img/markS.png' style='display: block;position: fixed;bottom:0;left:49.5%;' class='markVert'>`;
+			}
+			else if((mode.toHeadingValue>180)&&(mode.toHeadingValue<225)){
+				percent = (mode.toHeadingValue-135)*100/90;
+				currDirectMark = `<img src='static/img/markSSW.png' style='display: block;position: fixed;bottom:0;right:${percent}%;' class='markVert'>`;
+			}
+			else if(mode.toHeadingValue==225){
+				currDirectMark = `<img src='static/img/markSW.png' style='display: block;position: fixed;bottom:0;left:0;' class='markHor'>`;
+			}
+			else if((mode.toHeadingValue>225)&&(mode.toHeadingValue<270)){
+				percent = 100 - (mode.toHeadingValue-225)*100/90;
+				currDirectMark = `<img src='static/img/markWSW.png' style='display:block;position:fixed;left:0;top:${percent}%;' class='markHor'>`;
+			}
+			else if(mode.toHeadingValue == 270){
+				currDirectMark = `<img src='static/img/markW.png' style='display: block;position: fixed;left:0;top:49%;' class='markHor'>`;
+			}
+			else if((mode.toHeadingValue>270)&&(mode.toHeadingValue<315)){
+				percent = (mode.toHeadingValue-225)*100/90;
+				currDirectMark = `<img src='static/img/markWNW.png' style='display:block;position:fixed;left:0;bottom:${percent}%;' class='markHor'>`;
+			}
+			else if(mode.toHeadingValue==315){
+				currDirectMark = `<img src='static/img/markNW.png' style='display: block;position: absolute;top:0;left:0;' class='markHor'>`;
+			}
+			// Метка текущего направления 	theHeading уже есть
+			if((theHeading>315)&&(theHeading<=360)){
+				percent = 100 - (theHeading - 315)*100/90;
+				currTrackMark = `<img src='static/img/markCurrN.png' style='display:block;position:fixed;top:0;right:${percent}%;' class='vert'>`;
+			} 
+			else if((theHeading>=0)&&(theHeading<45)){
+				percent = (theHeading+45)*100/90;
+				currTrackMark = `<img src='static/img/markCurrN.png' style='display: block;position: fixed;top:0;left:${percent}%;' class='vert'>`;
+			}
+			else if(theHeading == 45){
+				currTrackMark = `<img src='static/img/markCurrSE.png' style='display: block;position: fixed;top:0;right:0;' class='vert'>`;
+			}
+			else if((theHeading > 45) && (theHeading < 135)){
+				percent = 100 - (theHeading-45)*100/90;
+				currTrackMark = `<img src='static/img/markCurrE.png' style='display: block;position: fixed;right:0;bottom:${percent}%;' class='hor'>`;
+			}
+			else if(theHeading == 135){
+				currTrackMark = `<img src='static/img/markCurrNE.png' style='display: block;position: fixed;bottom:0;right:0;' class='vert'>`;
+			}
+			else if((theHeading>135)&&(theHeading<225)){
+				percent = 100 - (theHeading-135)*100/90;
+				currTrackMark = `<img src='static/img/markCurrN.png' style='display: block;position: fixed;bottom:0;left:${percent}%;' class='vert'>`;
+			}
+			else if(theHeading==225){
+				currTrackMark = `<img src='static/img/markCurrNE.png' style='display: block;position: fixed;bottom:0;left:0;' class='vert'>`;
+			}
+			else if((theHeading>225)&&(theHeading<315)){
+				percent = 100 - (theHeading-225)*100/90;
+				currTrackMark = `<img src='static/img/markCurrE.png' style='display:block;position:fixed;left:0;top:${percent}%;' class='hor'>`;
+			}
+			else if(theHeading==315){
+				currTrackMark = `<img src='static/img/markCurrNE.png' style='display: block;position: absolute;top:0;left:0;' class='vert'>`;
+			}
+		}
 
 		// DISPLAY:
 		let fontZ = Math.floor(symbol.length/3); 	// считая, что штатный размер шрифта позволяет разместить 4 символа на экране
@@ -414,7 +509,7 @@ plugin.start = function (options, restartPlugin) {
    <title>e-inkDashboard v.${versionTXT}</title>
 </head>
 <body style="margin:0; padding:0;">
-
+${currTrackMark} ${currDirectMark}
 <script>
 var controlKeys = getCookie('GaladrielMapDashboardControlKeys');
 if(controlKeys) {
@@ -499,7 +594,7 @@ return matches ? decodeURIComponent(matches[1]) : undefined;
 	position:fixed;
 	right: 5%;
 	top: 5%;
-	width:53%;
+	width:75%;
 	background-color:lightgrey;
 	padding: 1rem;
 	font-size: xx-large;
@@ -507,27 +602,27 @@ return matches ? decodeURIComponent(matches[1]) : undefined;
 '>
 	<input type='hidden' name='session' value=${JSON.stringify(mode)}>
 	<table>
-		<tr style='height:3rem;'>
-			<td style='width:3rem;'><input type='checkbox' name='depthAlarm' value='1' 
+		<tr style='height:2rem;'>
+			<td><input type='checkbox' name='depthAlarm' value='1' 
 			`;
 			if(mode.depthAlarm) responseBody += 'checked';
-			responseBody += `
-			></td><td>${dashboardDepthMenuTXT}, ${dashboardDepthMesTXT}</td><td style='width:10%;'><input type='text' name=minDepthValue value='${mode.minDepthValue?mode.minDepthValue:''}' style='width:95%;font-size:x-large;'></td>
-		</tr><tr style='height:3rem;'>
+			responseBody += ` style='height:3em;width:3rem;'
+			></td><td>${dashboardDepthMenuTXT}, ${dashboardDepthMesTXT}</td><td style='width:10%;'><input type='text' name=minDepthValue value='${mode.minDepthValue?mode.minDepthValue:''}' style='width:95%;'></td>
+		</tr><tr style='height:2rem;'>
 			<td><input type='checkbox' name='minSpeedAlarm' value='1' 
 			`;
 			if(mode.minSpeedAlarm) responseBody += 'checked';
-			responseBody += `
-			></td><td>${dashboardMinSpeedMenuTXT}, ${dashboardSpeedMesTXT}</td><td style='width:10%;'><input type='text' name=minSpeedValue value='${mode.minSpeedValue?mode.minSpeedValue:''}' style='width:95%;font-size:x-large;'></td>
-		</tr><tr style='height:3rem;'>
+			responseBody += ` style='height:3em;width:3rem;'
+			></td><td>${dashboardMinSpeedMenuTXT}, ${dashboardSpeedMesTXT}</td><td style='width:10%;'><input type='text' name=minSpeedValue value='${mode.minSpeedValue?mode.minSpeedValue:''}' style='width:95%;'></td>
+		</tr><tr style='height:2rem;'>
 			<td><input type='checkbox' name='maxSpeedAlarm' value='1'`;
 			if(mode.maxSpeedAlarm) responseBody += 'checked';
-			responseBody += `
-			></td><td>${dashboardMaxSpeedMenuTXT}, ${dashboardSpeedMesTXT}</td><td style='width:10%;'><input type='text' name=maxSpeedValue value='${mode.maxSpeedValue?mode.maxSpeedValue:''}' style='width:95%;font-size:x-large;'></td>
-		</tr><tr style='height:3rem;'>
+			responseBody += ` style='height:3em;width:3rem;'
+			></td><td>${dashboardMaxSpeedMenuTXT}, ${dashboardSpeedMesTXT}</td><td style='width:10%;'><input type='text' name=maxSpeedValue value='${mode.maxSpeedValue?mode.maxSpeedValue:''}' style='width:95%;'></td>
+		</tr><tr style='height:2rem;'>
 			<td><input type='checkbox' name='toHeadingAlarm' value='1'`;
 			if(mode.toHeadingAlarm) responseBody += 'checked';
-			responseBody += ` ></td><td>`;
+			responseBody += ` style='height:3em;width:3rem;' ></td><td>`;
 			if(mode.magnetic){
 				if(mode.toHeadingAlarm){
 					if(mode.toHeadingMagnetic) responseBody += dashboardMagHeadingTXT;
@@ -555,9 +650,9 @@ return matches ? decodeURIComponent(matches[1]) : undefined;
 				if(mode.toHeadingAlarm) responseBody += mode.toHeadingValue;
 				else responseBody += Math.round(tpv.track);
 			}
-			responseBody += `' style='width:95%;font-size:x-large;'></td>
+			responseBody += `' style='width:95%;'></td>
 		</tr><tr>
-			<td></td><td style='padding-top:2rem;'><a href='${uri}' style='text-decoration:none;'><input type='button' value='&#x2718;' style='font-size:120%;'></a><input type='submit' name='submit' value='&#x2713;' style='font-size:120%;float:right;'></td><td></td>
+			<td></td><td style='padding-top:1rem;'><a href='${uri}' style='text-decoration:none;'><input type='button' value='&nbsp;&nbsp;&#x2718;&nbsp;&nbsp;' style='font-size:130%;'></a><input type='submit' name='submit' value='&nbsp;&nbsp;&#x2713;&nbsp;&nbsp;' style='font-size:130%;float:right;'></td><td></td>
 		</tr>
 	</table>
 	<div id='jsKeys'>
