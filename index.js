@@ -607,18 +607,18 @@ return matches ? decodeURIComponent(matches[1]) : undefined;
 			`;
 			if(mode.depthAlarm) responseBody += 'checked';
 			responseBody += ` style='height:3em;width:3rem;'
-			></td><td>${dashboardDepthMenuTXT}, ${dashboardDepthMesTXT}</td><td style='width:10%;'><input type='text' name=minDepthValue value='${mode.minDepthValue?mode.minDepthValue:''}' style='width:95%;'></td>
+			></td><td>${dashboardDepthMenuTXT}, ${dashboardDepthMesTXT}</td><td style='width:10%;'><input type='text' name=minDepthValue value='${mode.minDepthValue?mode.minDepthValue:''}' style='width:95%;font-size:inherit;'></td>
 		</tr><tr style='height:2rem;'>
 			<td><input type='checkbox' name='minSpeedAlarm' value='1' 
 			`;
 			if(mode.minSpeedAlarm) responseBody += 'checked';
 			responseBody += ` style='height:3em;width:3rem;'
-			></td><td>${dashboardMinSpeedMenuTXT}, ${dashboardSpeedMesTXT}</td><td style='width:10%;'><input type='text' name=minSpeedValue value='${mode.minSpeedValue?mode.minSpeedValue:''}' style='width:95%;'></td>
+			></td><td>${dashboardMinSpeedMenuTXT}, ${dashboardSpeedMesTXT}</td><td style='width:10%;'><input type='text' name=minSpeedValue value='${mode.minSpeedValue?mode.minSpeedValue:''}' style='width:95%;font-size:inherit;'></td>
 		</tr><tr style='height:2rem;'>
 			<td><input type='checkbox' name='maxSpeedAlarm' value='1'`;
 			if(mode.maxSpeedAlarm) responseBody += 'checked';
 			responseBody += ` style='height:3em;width:3rem;'
-			></td><td>${dashboardMaxSpeedMenuTXT}, ${dashboardSpeedMesTXT}</td><td style='width:10%;'><input type='text' name=maxSpeedValue value='${mode.maxSpeedValue?mode.maxSpeedValue:''}' style='width:95%;'></td>
+			></td><td>${dashboardMaxSpeedMenuTXT}, ${dashboardSpeedMesTXT}</td><td style='width:10%;'><input type='text' name=maxSpeedValue value='${mode.maxSpeedValue?mode.maxSpeedValue:''}' style='width:95%;font-size:inherit;'></td>
 		</tr><tr style='height:2rem;'>
 			<td><input type='checkbox' name='toHeadingAlarm' value='1'`;
 			if(mode.toHeadingAlarm) responseBody += 'checked';
@@ -650,7 +650,7 @@ return matches ? decodeURIComponent(matches[1]) : undefined;
 				if(mode.toHeadingAlarm) responseBody += mode.toHeadingValue;
 				else responseBody += Math.round(tpv.track);
 			}
-			responseBody += `' style='width:95%;'></td>
+			responseBody += `' style='width:95%;font-size:inherit;'></td>
 		</tr><tr>
 			<td></td><td style='padding-top:1rem;'><a href='${uri}' style='text-decoration:none;'><input type='button' value='&nbsp;&nbsp;&#x2718;&nbsp;&nbsp;' style='font-size:130%;'></a><input type='submit' name='submit' value='&nbsp;&nbsp;&#x2713;&nbsp;&nbsp;' style='font-size:130%;float:right;'></td><td></td>
 		</tr>
