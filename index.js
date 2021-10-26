@@ -27,6 +27,11 @@ plugin.schema = {
 			`,
 			default: 2
 		},
+		alarm:{
+			type: 'boolean',
+			title: 'fier',
+			default: false
+		}
 	}
 };
 
@@ -101,26 +106,7 @@ plugin.start = function (options, restartPlugin) {
 			}
 		]
 	})
-	
-	app.handleMessage(plugin.id, {
-		updates: [
-			{
-				values: [
-					{
-						//path: 'notifications.environment.depth.belowTransducer',
-						path: 'notifications.navigation.mob',
-						value: {
-							'state': 'emergency',
-							'method': ['sound'],
-							'message': 'Бе-бе-бе'
-						}
-					}
-				]
-			}
-		]
-	})
 	*/
-	
 
 	// функция, реализующая функциональность сервера. Поскольку в node.js всё через жопу -- нельзя заставить уже имеющийся сервер выполнять дополнительные функции, надо организовать свой. Ага, на своём порту, б...
 	function dashboardServer(request, response) { 	
@@ -319,6 +305,27 @@ plugin.start = function (options, restartPlugin) {
 				alarmJS = 'toHeadingAlarm();';
 				alarm = true;
 			}
+	
+	app.handleMessage(plugin.id, {
+		updates: [
+			{
+				values: [
+					{
+						//path: 'notifications.environment.depth.belowTransducer',
+						//path: 'notifications.navigation.gnss',
+						//path: 'notifications.mob',
+						path: 'notifications.myAlarm',
+						value: {
+							'state': 'emergency',
+							'method': ['visual','sound'],
+							'message': 'Бе-бе-бе'
+						}
+					}
+				]
+			}
+		]
+	})
+	
 		}
 		if(mode.depthAlarm && (tpv['depth']!==null)) {
 			if(tpv['depth'] <= mode.minDepthValue) {
