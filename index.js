@@ -305,27 +305,6 @@ plugin.start = function (options, restartPlugin) {
 				alarmJS = 'toHeadingAlarm();';
 				alarm = true;
 			}
-	
-	app.handleMessage(plugin.id, {
-		updates: [
-			{
-				values: [
-					{
-						//path: 'notifications.environment.depth.belowTransducer',
-						//path: 'notifications.navigation.gnss',
-						//path: 'notifications.mob',
-						path: 'notifications.myAlarm',
-						value: {
-							'state': 'emergency',
-							'method': ['visual','sound'],
-							'message': 'Бе-бе-бе'
-						}
-					}
-				]
-			}
-		]
-	})
-	
 		}
 		if(mode.depthAlarm && (tpv['depth']!==null)) {
 			if(tpv['depth'] <= mode.minDepthValue) {
