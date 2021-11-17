@@ -914,8 +914,8 @@ jsTest();
 	}; // end function dashboardServer
 	
 	const server = http.createServer(dashboardServer); 	// собственно, запустим сервер
-	server.listen(dashboardPort, '0.0.0.0', () => {
-		app.debug(`Dashboard server running at http://0.0.0.0:${dashboardPort}/`);
+	server.listen(dashboardPort, dashboardHost, () => {
+		app.debug(`Dashboard server running at http://${dashboardHost}:${dashboardPort}/`);
 	});
 	unsubscribes.push(() => { 	// функция остановки сервера при остановке плугина
 		server.close();
