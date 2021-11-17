@@ -1,6 +1,6 @@
 {
   "name": "e-inkdashboard",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "e-ink screens - optimized dashboard with some Signal K instruments",
   "main": "index.js",
   "author": "Vladimir Kalachikhin",

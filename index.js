@@ -69,45 +69,6 @@ plugin.start = function (options, restartPlugin) {
 	`;
 	fs.writeFileSync(__dirname+'/public/index.html',indexhtml);
 	
-	
-	//let meta = app.getSelfPath('navigation.position.value');
-	//app.debug(meta);
-	/*
-	app.handleMessage(plugin.id, {
-		updates: [
-			{
-				values: [
-					{
-						path: 'environment.depth.belowTransducer.meta',
-						value: {
-							/*
-							"displayName": "Shallow hazard",
-							"longName": "Shallow hazard",
-							"shortName": "Shallow hazard",
-							"description": "Alarm by the hazard of shallow",
-							"units": "m",
-							"timeout": 1,
-							"displayScale": {"lower": 1.5, "upper": 5, "type": "linear"},
-							"alertMethod": ["visual"],
-							"warnMethod": ["visual"],
-							"alarmMethod": ["sound", "visual"],
-							*//*
-							"emergencyMethod": ["sound", "visual"],
-							"zones": [
-								//{"lower": 31, "state": "normal"},
-								{"lower": 0, "upper": 3, "state": "emergency"},
-								//{"lower": 4, "upper": 5, "state": "alert", "message": "Shallow!"},
-								//{"lower": 2, "upper": 4, "state": "alarm", "message": "Very shallow!"},
-								//{"upper": 2, "state": "emergency", "message": "Ground."}
-							]
-						}
-					}
-				]
-			}
-		]
-	})
-	*/
-
 	// функция, реализующая функциональность сервера. Поскольку в node.js всё через жопу -- нельзя заставить уже имеющийся сервер выполнять дополнительные функции, надо организовать свой. Ага, на своём порту, б...
 	function dashboardServer(request, response) { 	
 		//app.debug('request:',request.headers['accept-language']);
@@ -244,227 +205,235 @@ plugin.start = function (options, restartPlugin) {
 		}
 
 		let tpv = {};
-		tpv.status = app.getSelfPath('navigation.state') ? app.getSelfPath('navigation.state').value : undefined;
-		tpv.speed = app.getSelfPath('navigation.speedOverGround') ? app.getSelfPath('navigation.speedOverGround').value : undefined;
-		tpv['track'] = app.getSelfPath('navigation.courseOverGroundTrue') ? app.getSelfPath('navigation.courseOverGroundTrue').value *180/Math.PI : undefined;
-		tpv.heading = app.getSelfPath('navigation.headingTrue') ? Math.round(app.getSelfPath('navigation.headingTrue').value *180/Math.PI) : undefined;
-		tpv['depth'] = app.getSelfPath('environment.depth.belowSurface') ? app.getSelfPath('environment.depth.belowSurface').value : undefined;
-		if(!tpv['depth']) tpv['depth'] = app.getSelfPath('environment.depth.belowTransducer')?app.getSelfPath('environment.depth.belowTransducer').value:undefined;
-		tpv.destination = app.getSelfPath('navigation.destination.commonName') ? app.getSelfPath('navigation.destination.commonName').value : undefined;
-		tpv.eta = app.getSelfPath('navigation.destination.eta') ? app.getSelfPath('navigation.destination.eta').value : undefined;
-		tpv.timestamp = app.getSelfPath('navigation.datetime') ? Math.round(new Date(app.getSelfPath('navigation.datetime').value).getTime()/1000) : Math.round(new Date().getTime()/1000); 	// navigation.datetime -- строка iso-8601
-		tpv['magtrack'] = app.getSelfPath('navigation.courseOverGroundMagnetic') ? app.getSelfPath('navigation.courseOverGroundMagnetic').value *180/Math.PI : undefined;
-		tpv['magvar'] = app.getSelfPath('navigation.magneticDeviation') ? app.getSelfPath('navigation.magneticDeviation').value *180/Math.PI : undefined;
+		if(app.getSelfPath('navigation.state')) tpv.status =  app.getSelfPath('navigation.state').value;
+		if(app.getSelfPath('navigation.speedOverGround')) tpv.speed = app.getSelfPath('navigation.speedOverGround').value;
+		if(app.getSelfPath('navigation.courseOverGroundTrue')) tpv['track'] = app.getSelfPath('navigation.courseOverGroundTrue').value *180/Math.PI;
+		if(app.getSelfPath('navigation.headingTrue')) tpv.heading = Math.round(app.getSelfPath('navigation.headingTrue').value *180/Math.PI);
+		if(app.getSelfPath('environment.depth.belowSurface')) tpv['depth'] = app.getSelfPath('environment.depth.belowSurface').value;
+		if(!tpv['depth']) {
+			if(app.getSelfPath('environment.depth.belowTransducer')) tpv['depth'] = app.getSelfPath('environment.depth.belowTransducer').value;
+		}
+		if(app.getSelfPath('navigation.destination.commonName')) tpv.destination = app.getSelfPath('navigation.destination.commonName').value;
+		if(app.getSelfPath('navigation.destination.eta')) tpv.eta = app.getSelfPath('navigation.destination.eta').value;
+		if(app.getSelfPath('navigation.courseOverGroundMagnetic')) tpv['magtrack'] = app.getSelfPath('navigation.courseOverGroundMagnetic').value *180/Math.PI;
+		if(app.getSelfPath('navigation.magneticDeviation')) tpv['magvar'] = app.getSelfPath('navigation.magneticDeviation').value *180/Math.PI;
+		
+		let alarm = false, prevMode = null, nextMode = null, currDirectMark='', currTrackMark='';
+		let currRumb = ['   ','   ','    ','   ','   ','   ','    ','   ','   ','   ','    ','   ','   ','   ','    ','   '];
+		let enough = false, type, parm, variant, variantType, symbol='', nextsymbol='', header = '';
+		if(JSON.stringify(tpv) === '{}') {	// самый нечереззадый способ определить пустой массив в JavaScript. Но это реально через жопу.
+			symbol = 'No data';
+		}
+		else {
+			tpv.timestamp = app.getSelfPath('navigation.datetime') ? Math.round(new Date(app.getSelfPath('navigation.datetime').value).getTime()/1000) : Math.round(new Date().getTime()/1000); 	// navigation.datetime -- строка iso-8601
 
-		// типы данных, которые, собственно, будем показывать 
-		const displayData = {  	// 
-			'track' : {'variants' : [['track',dashboardHeadingTXT],['magtrack',dashboardMagHeadingTXT]], 	// курс, магнитный курс
-				'precision' : 0,
-				'multiplicator' : 1
-			},
-			'speed' : {'variants' : [['speed',dashboardSpeedTXT+', '+dashboardSpeedMesTXT]],	// скорость
-				'precision' : 1,
-				'multiplicator' : 60*60/1000
-			},
-			'depth' : {'variants' : [['depth',dashboardDepthTXT+', '+dashboardDepthMesTXT]], 	// глубина
-				'precision' : 1,
-				'multiplicator' : 1
-			}
-		};
+			// типы данных, которые, собственно, будем показывать 
+			const displayData = {  	// 
+				'track' : {'variants' : [['track',dashboardHeadingTXT],['magtrack',dashboardMagHeadingTXT]], 	// курс, магнитный курс
+					'precision' : 0,
+					'multiplicator' : 1
+				},
+				'speed' : {'variants' : [['speed',dashboardSpeedTXT+', '+dashboardSpeedMesTXT]],	// скорость
+					'precision' : 1,
+					'multiplicator' : 60*60/1000
+				},
+				'depth' : {'variants' : [['depth',dashboardDepthTXT+', '+dashboardDepthMesTXT]], 	// глубина
+					'precision' : 1,
+					'multiplicator' : 1
+				}
+			};
 
-		let header = '';
-		// Оповещения в порядке возрастания опасности, реально сработает последнее
-		let alarm = false, alarmJS;
-		if(mode.minSpeedAlarm && (tpv['speed']!==null)) {
-			if(tpv['speed']*60*60/1000 <= mode.minSpeedValue) {
-				mode.mode = 'speed';
-				header = dashboardMinSpeedAlarmTXT;
-				alarmJS = 'minSpeedAlarm();';
-				alarm = true;
+			// Оповещения в порядке возрастания опасности, реально сработает последнее
+			let alarmJS;
+			if(mode.minSpeedAlarm && (tpv['speed']!==null)) {
+				if(tpv['speed']*60*60/1000 <= mode.minSpeedValue) {
+					mode.mode = 'speed';
+					header = dashboardMinSpeedAlarmTXT;
+					alarmJS = 'minSpeedAlarm();';
+					alarm = true;
+				}
 			}
-		}
-		if(mode.maxSpeedAlarm && (tpv['speed']!==null)) {
-			if(tpv['speed']*60*60/1000 >= mode.maxSpeedValue) {
-				mode.mode = 'speed';
-				header = dashboardMaxSpeedAlarmTXT;
-				alarmJS = 'maxSpeedAlarm();';
-				alarm = true;
+			if(mode.maxSpeedAlarm && (tpv['speed']!==null)) {
+				if(tpv['speed']*60*60/1000 >= mode.maxSpeedValue) {
+					mode.mode = 'speed';
+					header = dashboardMaxSpeedAlarmTXT;
+					alarmJS = 'maxSpeedAlarm();';
+					alarm = true;
+				}
 			}
-		}
-		let theHeading=null;
-		if(mode.toHeadingAlarm) {
-			if(mode.toHeadingMagnetic && (typeof(tpv.magtrack) !== 'undefined')) theHeading = tpv.magtrack;
-			else theHeading = tpv.track; 	// тревога прозвучит, даже если был указан магнитный курс, но его нет
-			const minHeading = mode.toHeadingValue - mode.toHeadingPrecision;
-			if(minHeading<0) minHeading = minHeading+360;
-			const maxHeading = mode.toHeadingValue + mode.toHeadingPrecision;
-			if(maxHeading>=360) maxHeading = maxHeading-360;
-			if((theHeading < minHeading) || (theHeading > maxHeading)) {
-				mode.mode = 'track';
-				header = dashboardToHeadingAlarmTXT;
-				alarmJS = 'toHeadingAlarm();';
-				alarm = true;
+			let theHeading=null;
+			if(mode.toHeadingAlarm) {
+				if(mode.toHeadingMagnetic && (typeof(tpv.magtrack) !== 'undefined')) theHeading = tpv.magtrack;
+				else theHeading = tpv.track; 	// тревога прозвучит, даже если был указан магнитный курс, но его нет
+				const minHeading = mode.toHeadingValue - mode.toHeadingPrecision;
+				if(minHeading<0) minHeading = minHeading+360;
+				const maxHeading = mode.toHeadingValue + mode.toHeadingPrecision;
+				if(maxHeading>=360) maxHeading = maxHeading-360;
+				if((theHeading < minHeading) || (theHeading > maxHeading)) {
+					mode.mode = 'track';
+					header = dashboardToHeadingAlarmTXT;
+					alarmJS = 'toHeadingAlarm();';
+					alarm = true;
+				}
 			}
-		}
-		if(mode.depthAlarm && (tpv['depth']!==null)) {
-			if(tpv['depth'] <= mode.minDepthValue) {
-				mode.mode = 'depth';
-				header = dashboardDepthAlarmTXT;
-				alarmJS = 'depthAlarm();';
-				alarm = true;
+			if(mode.depthAlarm && (tpv['depth']!==null)) {
+				if(tpv['depth'] <= mode.minDepthValue) {
+					mode.mode = 'depth';
+					header = dashboardDepthAlarmTXT;
+					alarmJS = 'depthAlarm();';
+					alarm = true;
+				}
 			}
-		}
 
-		// Что будем рисовать
-		const parms = Object.keys(displayData);
-		const cnt = parms.length;
-		let enough = false, prevMode = null, nextMode = null, type, parm, variant, variantType, symbol, nextsymbol;
-		for(let i=0;i<cnt;i++){
-			type = parms[i];
-			parm = displayData[type];
-			//app.debug('type=',type,"parm=",parm,'mode=',mode);
-			if(!mode.mode) mode.mode = type; 	// что-то не так с типом, сделаем текущий тип указанным
-			if(enough) {
+			// Что будем рисовать
+			const parms = Object.keys(displayData);
+			const cnt = parms.length;
+			for(let i=0;i<cnt;i++){ 	// если tpv пустой -- цикл будет вечен.
+				type = parms[i];
+				parm = displayData[type];
+				//app.debug('type=',type,"parm=",parm,'mode=',mode);
+				if(!mode.mode) mode.mode = type; 	// что-то не так с типом, сделаем текущий тип указанным
+				if(enough) {
+					variant = 0;
+					if(type == 'track' && mode.magnetic) variant = 1;
+					variantType = parm['variants'][variant][0];
+					//app.debug('Next variantType =',variantType);
+					if(tpv[variantType] == undefined) { 	// но такого типа значения нет в полученных данных.
+						if(i == cnt-1) i = -1; 	// цикл по кругу
+						continue;
+					}
+					nextsymbol = parm['variants'][variant][1]+":&nbsp; "+Math.round(tpv[variantType]*parm['multiplicator']*(10**parm['precision']))/(10**parm['precision']);
+					nextMode = type;
+					//app.debug('symbol =',symbol,'nextsymbol=',nextsymbol,'nextMode=',nextMode,'parm=',parm);
+					break;
+				}
+				if(type != mode.mode) {  	// это не указанный тип
+					prevMode = type;
+					continue;
+				}
 				variant = 0;
 				if(type == 'track' && mode.magnetic) variant = 1;
 				variantType = parm['variants'][variant][0];
-				//app.debug('Next variantType =',variantType);
+				//app.debug('Main variantType =',variantType,tpv);
 				if(tpv[variantType] == undefined) { 	// но такого типа значения нет в полученных данных.
+					mode.mode = null; 	// обозначим, что следующий тип должен стать указанным
 					if(i == cnt-1) i = -1; 	// цикл по кругу
+					app.debug('Cycle2 type=',type,"mode.mode=",mode.mode,'i=',i);
 					continue;
 				}
-				nextsymbol = parm['variants'][variant][1]+":&nbsp; "+Math.round(tpv[variantType]*parm['multiplicator']*(10**parm['precision']))/(10**parm['precision']);
-				nextMode = type;
-				//app.debug('symbol =',symbol,'nextsymbol=',nextsymbol,'nextMode=',nextMode,'parm=',parm);
-				break;
-			}
-			if(type != mode.mode) {  	// это не указанный тип
-				prevMode = type;
-				continue;
-			}
-			variant = 0;
-			if(type == 'track' && mode.magnetic) variant = 1;
-			variantType = parm['variants'][variant][0];
-			//app.debug('Main variantType =',variantType);
-			if(tpv[variantType] == undefined) { 	// но такого типа значения нет в полученных данных.
-				mode.mode = null; 	// обозначим, что следующий тип должен стать указанным
+				header = parm['variants'][variant][1];
+				symbol = Math.round(tpv[variantType]*parm['multiplicator']*(10**parm['precision']))/(10**parm['precision']);
+				enough = true;
 				if(i == cnt-1) i = -1; 	// цикл по кругу
-				//app.debug('Cycle2 type=',type,"mode.mode=",mode.mode,'i=',i);
-				continue;
+				//app.debug('Cycle type=',type,'prevMode=',prevMode,"mode.mode=",mode.mode,'nextMode=',nextMode,'i=',i,'cnt=',cnt);
 			}
-			header = parm['variants'][variant][1];
-			symbol = Math.round(tpv[variantType]*parm['multiplicator']*(10**parm['precision']))/(10**parm['precision']);
-			enough = true;
-			if(i == cnt-1) i = -1; 	// цикл по кругу
-			//app.debug('Cycle type=',type,'prevMode=',prevMode,"mode.mode=",mode.mode,'nextMode=',nextMode,'i=',i,'cnt=',cnt);
-		}
-		if(!prevMode){
-			prevMode = parms[cnt-1];
-		}
-		//app.debug('Exit cycle type=',type,'prevMode=',prevMode,"mode.mode=",mode.mode,'nextMode=',nextMode);
+			if(!prevMode){
+				prevMode = parms[cnt-1];
+			}
+			//app.debug('Exit cycle type=',type,'prevMode=',prevMode,"mode.mode=",mode.mode,'nextMode=',nextMode);
 
-		const rumbNames = ['&nbsp;&nbsp;&nbsp;N&nbsp;&nbsp;&nbsp;','NNE','&nbsp;NE&nbsp;','ENE','&nbsp;&nbsp;E&nbsp;&nbsp;','ESE','&nbsp;SE&nbsp;','SSE','&nbsp;&nbsp;&nbsp;S&nbsp;&nbsp;&nbsp;','SSW','&nbsp;SW&nbsp;','WSW','&nbsp;&nbsp;W&nbsp;&nbsp;','WNW','&nbsp;NW&nbsp;','NNW'];
-		let rumbNum;
-		if(mode.magnetic && (tpv['magtrack']!==null)) rumbNum = Math.round(tpv['magtrack']/22.5);
-		else if(tpv['track']!==null) rumbNum = Math.round(tpv['track']/22.5);
-		else rumbNum = null;
-		if(rumbNum==16) rumbNum = 0;
-		//app.debug("rumbNum=",rumbNum);
-		let currRumb = ['   ','   ','    ','   ','   ','   ','    ','   ','   ','   ','    ','   ','   ','   ','    ','   '];
-		currRumb[rumbNum] = rumbNames[rumbNum];
+			const rumbNames = ['&nbsp;&nbsp;&nbsp;N&nbsp;&nbsp;&nbsp;','NNE','&nbsp;NE&nbsp;','ENE','&nbsp;&nbsp;E&nbsp;&nbsp;','ESE','&nbsp;SE&nbsp;','SSE','&nbsp;&nbsp;&nbsp;S&nbsp;&nbsp;&nbsp;','SSW','&nbsp;SW&nbsp;','WSW','&nbsp;&nbsp;W&nbsp;&nbsp;','WNW','&nbsp;NW&nbsp;','NNW'];
+			let rumbNum;
+			if(mode.magnetic && (tpv['magtrack']!==null)) rumbNum = Math.round(tpv['magtrack']/22.5);
+			else if(tpv['track']!==null) rumbNum = Math.round(tpv['track']/22.5);
+			else rumbNum = null;
+			if(rumbNum==16) rumbNum = 0;
+			//app.debug("rumbNum=",rumbNum);
+			currRumb[rumbNum] = rumbNames[rumbNum];
 
-		let percent=null, currDirectMark='', currTrackMark='';
-		if(mode.toHeadingAlarm) {
-			//mode.toHeadingValue =30;
-			// Метка указанного направления
-			if((mode.toHeadingValue>315)&&(mode.toHeadingValue<360)){
-				percent = 100 - (mode.toHeadingValue - 315)*100/90;
-				currDirectMark = `<img src='static/img/markNNW.png' style='display:block;position:fixed;top:0;right:${percent}%;' class='markVert'>`;
-			} 
-			else if(mode.toHeadingValue == 0){
-				currDirectMark = `<img src='static/img/markN.png' style='display:block;position:fixed;top:0;left:49.5%;' class='markVert'>`;
-			}
-			else if((mode.toHeadingValue>0)&&(mode.toHeadingValue<45)){
-				percent = (mode.toHeadingValue+45)*100/90;
-				currDirectMark = `<img src='static/img/markNNE.png' style='display: block;position: fixed;top:0;left:${percent}%;' class='markVert'>`;
-			}
-			else if(mode.toHeadingValue == 45){
-				currDirectMark = `<img src='static/img/markNE.png' style='display: block;position: fixed;top:0;right:0;' class='markVert'>`;
-			}
-			else if((mode.toHeadingValue > 45) && (mode.toHeadingValue < 90)){
-				percent = 100 - (mode.toHeadingValue-45)*100/90;
-				currDirectMark = `<img src='static/img/markENE.png' style='display: block;position: fixed;right:0;bottom:${percent}%;' class='markHor'>`;
-			}
-			else if(mode.toHeadingValue == 90){
-				currDirectMark = `<img src='static/img/markE.png' style='display: block;position: fixed;right:0;top:49%;' class='markHor'>`;
-			}
-			else if((mode.toHeadingValue > 90) && (mode.toHeadingValue < 135)){
-				percent = (mode.toHeadingValue-45)*100/90;
-				currDirectMark = `<img src='static/img/markESE.png' style='display: block;position: fixed;right:0;top:${percent}%;' class='markHor'>`;
-			}
-			else if(mode.toHeadingValue == 135){
-				currDirectMark = `<img src='static/img/markSE.png' style='display: block;position: fixed;bottom:0;right:0;' class='markHor'>`;
-			}
-			else if((mode.toHeadingValue>135)&&(mode.toHeadingValue<180)){
-				percent = 100 - (mode.toHeadingValue-135)*100/90;
-				currDirectMark = `<img src='static/img/markSSE.png' style='display: block;position: fixed;bottom:0;left:${percent}%;' class='markVert'>`;
-			}
-			else if(mode.toHeadingValue == 180){
-				currDirectMark = `<img src='static/img/markS.png' style='display: block;position: fixed;bottom:0;left:49.5%;' class='markVert'>`;
-			}
-			else if((mode.toHeadingValue>180)&&(mode.toHeadingValue<225)){
-				percent = (mode.toHeadingValue-135)*100/90;
-				currDirectMark = `<img src='static/img/markSSW.png' style='display: block;position: fixed;bottom:0;right:${percent}%;' class='markVert'>`;
-			}
-			else if(mode.toHeadingValue==225){
-				currDirectMark = `<img src='static/img/markSW.png' style='display: block;position: fixed;bottom:0;left:0;' class='markHor'>`;
-			}
-			else if((mode.toHeadingValue>225)&&(mode.toHeadingValue<270)){
-				percent = 100 - (mode.toHeadingValue-225)*100/90;
-				currDirectMark = `<img src='static/img/markWSW.png' style='display:block;position:fixed;left:0;top:${percent}%;' class='markHor'>`;
-			}
-			else if(mode.toHeadingValue == 270){
-				currDirectMark = `<img src='static/img/markW.png' style='display: block;position: fixed;left:0;top:49%;' class='markHor'>`;
-			}
-			else if((mode.toHeadingValue>270)&&(mode.toHeadingValue<315)){
-				percent = (mode.toHeadingValue-225)*100/90;
-				currDirectMark = `<img src='static/img/markWNW.png' style='display:block;position:fixed;left:0;bottom:${percent}%;' class='markHor'>`;
-			}
-			else if(mode.toHeadingValue==315){
-				currDirectMark = `<img src='static/img/markNW.png' style='display: block;position: absolute;top:0;left:0;' class='markHor'>`;
-			}
-			// Метка текущего направления 	theHeading уже есть
-			if((theHeading>315)&&(theHeading<=360)){
-				percent = 100 - (theHeading - 315)*100/90;
-				currTrackMark = `<img src='static/img/markCurrN.png' style='display:block;position:fixed;top:0;right:${percent}%;' class='vert'>`;
-			} 
-			else if((theHeading>=0)&&(theHeading<45)){
-				percent = (theHeading+45)*100/90;
-				currTrackMark = `<img src='static/img/markCurrN.png' style='display: block;position: fixed;top:0;left:${percent}%;' class='vert'>`;
-			}
-			else if(theHeading == 45){
-				currTrackMark = `<img src='static/img/markCurrSE.png' style='display: block;position: fixed;top:0;right:0;' class='vert'>`;
-			}
-			else if((theHeading > 45) && (theHeading < 135)){
-				percent = 100 - (theHeading-45)*100/90;
-				currTrackMark = `<img src='static/img/markCurrE.png' style='display: block;position: fixed;right:0;bottom:${percent}%;' class='hor'>`;
-			}
-			else if(theHeading == 135){
-				currTrackMark = `<img src='static/img/markCurrNE.png' style='display: block;position: fixed;bottom:0;right:0;' class='vert'>`;
-			}
-			else if((theHeading>135)&&(theHeading<225)){
-				percent = 100 - (theHeading-135)*100/90;
-				currTrackMark = `<img src='static/img/markCurrN.png' style='display: block;position: fixed;bottom:0;left:${percent}%;' class='vert'>`;
-			}
-			else if(theHeading==225){
-				currTrackMark = `<img src='static/img/markCurrNE.png' style='display: block;position: fixed;bottom:0;left:0;' class='vert'>`;
-			}
-			else if((theHeading>225)&&(theHeading<315)){
-				percent = 100 - (theHeading-225)*100/90;
-				currTrackMark = `<img src='static/img/markCurrE.png' style='display:block;position:fixed;left:0;top:${percent}%;' class='hor'>`;
-			}
-			else if(theHeading==315){
-				currTrackMark = `<img src='static/img/markCurrNE.png' style='display: block;position: absolute;top:0;left:0;' class='vert'>`;
+			let percent=null;
+			if(mode.toHeadingAlarm) {
+				//mode.toHeadingValue =30;
+				// Метка указанного направления
+				if((mode.toHeadingValue>315)&&(mode.toHeadingValue<360)){
+					percent = 100 - (mode.toHeadingValue - 315)*100/90;
+					currDirectMark = `<img src='static/img/markNNW.png' style='display:block;position:fixed;top:0;right:${percent}%;' class='markVert'>`;
+				} 
+				else if(mode.toHeadingValue == 0){
+					currDirectMark = `<img src='static/img/markN.png' style='display:block;position:fixed;top:0;left:49.5%;' class='markVert'>`;
+				}
+				else if((mode.toHeadingValue>0)&&(mode.toHeadingValue<45)){
+					percent = (mode.toHeadingValue+45)*100/90;
+					currDirectMark = `<img src='static/img/markNNE.png' style='display: block;position: fixed;top:0;left:${percent}%;' class='markVert'>`;
+				}
+				else if(mode.toHeadingValue == 45){
+					currDirectMark = `<img src='static/img/markNE.png' style='display: block;position: fixed;top:0;right:0;' class='markVert'>`;
+				}
+				else if((mode.toHeadingValue > 45) && (mode.toHeadingValue < 90)){
+					percent = 100 - (mode.toHeadingValue-45)*100/90;
+					currDirectMark = `<img src='static/img/markENE.png' style='display: block;position: fixed;right:0;bottom:${percent}%;' class='markHor'>`;
+				}
+				else if(mode.toHeadingValue == 90){
+					currDirectMark = `<img src='static/img/markE.png' style='display: block;position: fixed;right:0;top:49%;' class='markHor'>`;
+				}
+				else if((mode.toHeadingValue > 90) && (mode.toHeadingValue < 135)){
+					percent = (mode.toHeadingValue-45)*100/90;
+					currDirectMark = `<img src='static/img/markESE.png' style='display: block;position: fixed;right:0;top:${percent}%;' class='markHor'>`;
+				}
+				else if(mode.toHeadingValue == 135){
+					currDirectMark = `<img src='static/img/markSE.png' style='display: block;position: fixed;bottom:0;right:0;' class='markHor'>`;
+				}
+				else if((mode.toHeadingValue>135)&&(mode.toHeadingValue<180)){
+					percent = 100 - (mode.toHeadingValue-135)*100/90;
+					currDirectMark = `<img src='static/img/markSSE.png' style='display: block;position: fixed;bottom:0;left:${percent}%;' class='markVert'>`;
+				}
+				else if(mode.toHeadingValue == 180){
+					currDirectMark = `<img src='static/img/markS.png' style='display: block;position: fixed;bottom:0;left:49.5%;' class='markVert'>`;
+				}
+				else if((mode.toHeadingValue>180)&&(mode.toHeadingValue<225)){
+					percent = (mode.toHeadingValue-135)*100/90;
+					currDirectMark = `<img src='static/img/markSSW.png' style='display: block;position: fixed;bottom:0;right:${percent}%;' class='markVert'>`;
+				}
+				else if(mode.toHeadingValue==225){
+					currDirectMark = `<img src='static/img/markSW.png' style='display: block;position: fixed;bottom:0;left:0;' class='markHor'>`;
+				}
+				else if((mode.toHeadingValue>225)&&(mode.toHeadingValue<270)){
+					percent = 100 - (mode.toHeadingValue-225)*100/90;
+					currDirectMark = `<img src='static/img/markWSW.png' style='display:block;position:fixed;left:0;top:${percent}%;' class='markHor'>`;
+				}
+				else if(mode.toHeadingValue == 270){
+					currDirectMark = `<img src='static/img/markW.png' style='display: block;position: fixed;left:0;top:49%;' class='markHor'>`;
+				}
+				else if((mode.toHeadingValue>270)&&(mode.toHeadingValue<315)){
+					percent = (mode.toHeadingValue-225)*100/90;
+					currDirectMark = `<img src='static/img/markWNW.png' style='display:block;position:fixed;left:0;bottom:${percent}%;' class='markHor'>`;
+				}
+				else if(mode.toHeadingValue==315){
+					currDirectMark = `<img src='static/img/markNW.png' style='display: block;position: absolute;top:0;left:0;' class='markHor'>`;
+				}
+				// Метка текущего направления 	theHeading уже есть
+				if((theHeading>315)&&(theHeading<=360)){
+					percent = 100 - (theHeading - 315)*100/90;
+					currTrackMark = `<img src='static/img/markCurrN.png' style='display:block;position:fixed;top:0;right:${percent}%;' class='vert'>`;
+				} 
+				else if((theHeading>=0)&&(theHeading<45)){
+					percent = (theHeading+45)*100/90;
+					currTrackMark = `<img src='static/img/markCurrN.png' style='display: block;position: fixed;top:0;left:${percent}%;' class='vert'>`;
+				}
+				else if(theHeading == 45){
+					currTrackMark = `<img src='static/img/markCurrSE.png' style='display: block;position: fixed;top:0;right:0;' class='vert'>`;
+				}
+				else if((theHeading > 45) && (theHeading < 135)){
+					percent = 100 - (theHeading-45)*100/90;
+					currTrackMark = `<img src='static/img/markCurrE.png' style='display: block;position: fixed;right:0;bottom:${percent}%;' class='hor'>`;
+				}
+				else if(theHeading == 135){
+					currTrackMark = `<img src='static/img/markCurrNE.png' style='display: block;position: fixed;bottom:0;right:0;' class='vert'>`;
+				}
+				else if((theHeading>135)&&(theHeading<225)){
+					percent = 100 - (theHeading-135)*100/90;
+					currTrackMark = `<img src='static/img/markCurrN.png' style='display: block;position: fixed;bottom:0;left:${percent}%;' class='vert'>`;
+				}
+				else if(theHeading==225){
+					currTrackMark = `<img src='static/img/markCurrNE.png' style='display: block;position: fixed;bottom:0;left:0;' class='vert'>`;
+				}
+				else if((theHeading>225)&&(theHeading<315)){
+					percent = 100 - (theHeading-225)*100/90;
+					currTrackMark = `<img src='static/img/markCurrE.png' style='display:block;position:fixed;left:0;top:${percent}%;' class='hor'>`;
+				}
+				else if(theHeading==315){
+					currTrackMark = `<img src='static/img/markCurrNE.png' style='display: block;position: absolute;top:0;left:0;' class='vert'>`;
+				}
 			}
 		}
 
@@ -492,7 +461,7 @@ plugin.start = function (options, restartPlugin) {
 		if(alarm) responseBody += "<script>"+alarmJS+"</script>";
 		responseBody += `
 	<link rel="stylesheet" href="static/dashboard.css" type="text/css"> 
-   <title>e-inkDashboard v.${versionTXT}</title>
+   <title>e-inkDashboard ${versionTXT}</title>
 </head>
 <body style="margin:0; padding:0;">
 ${currTrackMark} ${currDirectMark}
