@@ -29,15 +29,6 @@ plugin.schema = {
 					],
 					'default': 'Course over ground (COG)'
 				},
-				'maxRefreshInterval': {
-					'type': 'number',
-					'title': 'The maximum frequency of Course refresh, sec',
-					'description': `Set this as quickly as your e-ink device may. If 0 -- 
-					the data will be displayed as fast as they are received. If your device swamping this data flow -- 
-					set this parameter to 0.5, 1 or 2 sec. Getting data seldom can be dangerous!
-					`,
-					'default': 0
-				},
 			},
 		},
 		'speedProp':{
@@ -52,15 +43,6 @@ plugin.schema = {
 						'Speed through water (STW)',
 					],
 					'default': 'Speed ower ground (SOG)'
-				},
-				'maxRefreshInterval': {
-					'type': 'number',
-					'title': 'The maximum frequency of Speed refresh, sec',
-					'description': `Set this as quickly as your e-ink device may. If 0 -- 
-					the data will be displayed as fast as they are received. If your device swamping this data flow -- 
-					set this parameter to 0.5, 1 or 2 sec. Getting data seldom can be dangerous!
-					`,
-					'default': 0
 				},
 			},
 		},
@@ -77,15 +59,6 @@ plugin.schema = {
 						'Depth below transducer (DBT)',
 					],
 					'default': 'Depth below surface (DBS)'
-				},
-				'maxRefreshInterval': {
-					'type': 'number',
-					'title': 'The maximum frequency of Depth refresh, sec',
-					'description': `Set this as quickly as your e-ink device may. If 0 -- 
-					the data will be displayed as fast as they are received. If your device swamping this data flow -- 
-					set this parameter to 0.5, 1 or 2 sec. Getting data seldom can be dangerous!
-					`,
-					'default': 0
 				},
 			},
 		},
