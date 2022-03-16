@@ -306,17 +306,17 @@ plugin.start = function (options, restartPlugin) {
 			'track' : {'variants' : [['track',dashboardHeadingTXT],['magtrack',dashboardMagHeadingTXT]], 	// курс или магнитный курс
 				'precision' : 0,	// точность показываемой цифры, символов после запятой
 				'multiplicator' : 1, 	// на что нужно умножить значение для показа
-				'fresh': (5+options.trackProp.maxRefreshInterval) * 1000		// время свежести, миллисек.
+				'fresh': (5+options.refreshInterval) * 1000		// время свежести, миллисек.
 			},
 			'speed' : {'variants' : [['speed',dashboardSpeedTXT+', '+dashboardSpeedMesTXT]],	// скорость
 				'precision' : 1,
 				'multiplicator' : 60*60/1000,
-				'fresh': (3+options.speedProp.maxRefreshInterval) * 1000
+				'fresh': (3+options.refreshInterval) * 1000
 			},
 			'depth' : {'variants' : [['depth',dashboardDepthTXT+', '+dashboardDepthMesTXT]], 	// глубина
 				'precision' : 1,
 				'multiplicator' : 1,
-				'fresh': (2+options.depthProp.maxRefreshInterval) * 1000
+				'fresh': (2+options.refreshInterval) * 1000
 			}
 		};
 
@@ -553,10 +553,10 @@ plugin.start = function (options, restartPlugin) {
 <html>
 <head>
 	<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-	<meta http-equiv="Content-Script-Type" content="text/javascript">
 	<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
 	<meta http-equiv="Pragma" content="no-cache" />
 	<meta http-equiv="Expires" content="0" />
+	<meta http-equiv="Content-Script-Type" content="text/javascript">
 		`;
 		if(!menu) responseBody += `<meta http-equiv='refresh' content="${options.refreshInterval}; url=${uri}" />`;
 		responseBody += `
@@ -569,6 +569,7 @@ plugin.start = function (options, restartPlugin) {
 </head>
 <body style="margin:0; padding:0;">
 ${currTrackMark} ${currDirectMark}
+<!--Refresh interval: ${options.refreshInterval};-->
 <script>
 var controlKeys = getCookie('e-inkDashboardControlKeys');
 if(controlKeys) {
@@ -972,11 +973,6 @@ jsTest();
 		responseBody += `
 </body>
 </html>`;
-		/*
-		response.setHeader('Content-Type', 'application/json');
-		const responseBody = { headers, method, url, body };
-		response.write(JSON.stringify(responseBody));
-		*/
 		response.on('error', (err) => {
 		  app.debug(err);
 		});
