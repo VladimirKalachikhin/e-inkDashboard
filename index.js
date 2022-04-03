@@ -135,7 +135,7 @@ plugin.start = function (options, restartPlugin) {
 	`;
 	fs.writeFileSync(__dirname+'/public/index.html',indexhtml);
 	
-	// функция, реализующая функциональность сервера. Поскольку в node.js всё через жопу -- нельзя заставить уже имеющийся сервер выполнять дополнительные функции, надо организовать свой. Ага, на своём порту, б...
+	// функция, реализующая функциональность сервера. Поскольку в node.js всё через жопу -- нельзя заставить уже имеющийся сервер выполнять дополнительные функции, надо организовать свой. Ага, на своём порту, б... Правда, вроде, есть Express, но оно тооооормоооозззззз.
 	function dashboardServer(request, response) { 	
 		//app.debug('request:',request.headers['accept-language']);
 		//app.debug('request:',request);
@@ -985,6 +985,7 @@ jsTest();
 	const server = http.createServer(dashboardServer); 	// собственно, запустим сервер
 	server.listen(dashboardPort, dashboardHost, () => {
 		app.debug(`Dashboard server running at http://${dashboardHost}:${dashboardPort}/`);
+		app.setPluginStatus(`Normal run, open dashboard at http://${dashboardHost}:${dashboardPort}/`);
 	});
 	unsubscribes.push(() => { 	// функция остановки сервера при остановке плугина
 		server.close();
