@@ -217,6 +217,7 @@ plugin.start = function (options, restartPlugin) {
 			var dashboardKeyPrevTXT = 'Предыдущий режим';
 			var dashboardKeyMenuTXT = 'Меню оповещений';
 			var dashboardKeyMagneticTXT = 'Магнитный курс';
+			var dashboardMOBTXT = 'Человек за бортом!';
 		}
 		else {
 			var dashboardHeadingTXT = 'Course';
@@ -240,6 +241,7 @@ plugin.start = function (options, restartPlugin) {
 			var dashboardKeyPrevTXT = 'Previous mode';
 			var dashboardKeyMenuTXT = 'Alarm menu';
 			var dashboardKeyMagneticTXT = 'Magnetic course';
+			var dashboardMOBTXT = 'A man overboard!';
 		}
 		if(inData.mode) mode.mode = inData.mode;
 		if(typeof inData.magnetic !== 'undefined') mode.magnetic = parseInt(inData.magnetic,10);
@@ -270,6 +272,7 @@ plugin.start = function (options, restartPlugin) {
 			if(!mode.toHeadingValue) mode.toHeadingAlarm = false;
 		}
 
+		// Получение приборов
 		let tpv = {};
 		if(app.getSelfPath(options.speedProp.feature)){
 			if(!tpv.speed) tpv.speed = {};
@@ -297,9 +300,36 @@ plugin.start = function (options, restartPlugin) {
 		tpv.magvar.timestamp =  Date.parse(app.getSelfPath('navigation.magneticDeviation').timestamp);
 		}
 		//app.debug('tpv:',tpv);
+		
+		// Получение MOB
+		let mobPosition = null;
+		if(app.getSelfPath('notifications.mob.value')){
+			let value = app.getSelfPath('notifications.mob.value');
+			mode.mob = true;
+			if(value.position){	// Это GeoJSON
+				// поищем точку, указанную как текущая
+				let from=[],to;
+				for(let point of value.position.features){	// там не только точки, но и LineString
+					if((point.geometry.type == "Point")  && point.properties.current){
+						to = point.geometry.coordinates;
+						break;
+					}
+				}
+				if(to && app.getSelfPath('navigation.position.value')){
+					const selfLonLat = app.getSelfPath('navigation.position.value');
+					from.push(selfLonLat.longitude,selfLonLat.latitude);
+				}
+				mobPosition = [from,to];
+				//app.debug('mob data from server',mobPosition);
+			}
+		}
+		else {
+			mode.mob = false;
+		}
+		//app.debug('mode.mob =',mode.mob);
 
+		// Поехали
 		let alarm = false, prevMode = null, nextMode = null, currDirectMark='', currTrackMark='';
-		let currRumb = ['   ','   ','    ','   ','   ','   ','    ','   ','   ','   ','    ','   ','   ','   ','    ','   '];
 		let enough = false, type, parm, variant, variantType, symbol='', nextsymbol='', header = '';
 		// типы данных, которые, собственно, будем показывать 
 		const displayData = {  	// 
@@ -338,7 +368,7 @@ plugin.start = function (options, restartPlugin) {
 
 		// Оповещения в порядке возрастания опасности, реально сработает последнее
 		let alarmJS;
-		if(mode.minSpeedAlarm && (tpv['speed'].value != (null || undefined))) {
+		if(mode.minSpeedAlarm && tpv['speed'] && (tpv['speed'].value != (null || undefined))) {
 			if(tpv['speed'].value*60*60/1000 <= mode.minSpeedValue) {
 				mode.mode = 'speed';
 				header = dashboardMinSpeedAlarmTXT;
@@ -346,7 +376,7 @@ plugin.start = function (options, restartPlugin) {
 				alarm = true;
 			}
 		}
-		if(mode.maxSpeedAlarm && (tpv['speed'].value != (null || undefined))) {
+		if(mode.maxSpeedAlarm && tpv['speed'] && (tpv['speed'].value != (null || undefined))) {
 			if(tpv['speed'].value*60*60/1000 >= mode.maxSpeedValue) {
 				mode.mode = 'speed';
 				header = dashboardMaxSpeedAlarmTXT;
@@ -354,22 +384,24 @@ plugin.start = function (options, restartPlugin) {
 				alarm = true;
 			}
 		}
-		let theHeading=null;
-		if(mode.toHeadingAlarm) {
+		let theHeading=null, toHeadingAlarm=false;
+		if(mode.toHeadingAlarm && !mode.mob) {
+			toHeadingAlarm=true;
 			if(mode.toHeadingMagnetic && tpv.magtrack) theHeading = tpv.magtrack.value;
-			else theHeading = tpv.track.value; 	// тревога прозвучит, даже если был указан магнитный курс, но его нет
-			const minHeading = mode.toHeadingValue - mode.toHeadingPrecision;
-			if(minHeading<0) minHeading = minHeading+360;
-			const maxHeading = mode.toHeadingValue + mode.toHeadingPrecision;
-			if(maxHeading>=360) maxHeading = maxHeading-360;
-			if((theHeading < minHeading) || (theHeading > maxHeading)) {
-				mode.mode = 'track';
-				header = dashboardToHeadingAlarmTXT;
-				alarmJS = 'toHeadingAlarm();';
-				alarm = true;
+			else if(tpv.track) theHeading = tpv.track.value; 	// тревога прозвучит, даже если был указан магнитный курс, но его нет			let minHeading = mode.toHeadingValue - mode.toHeadingPrecision;
+			if(theHeading){
+				if(minHeading<0) minHeading = minHeading+360;
+				let maxHeading = mode.toHeadingValue + mode.toHeadingPrecision;
+				if(maxHeading>=360) maxHeading = maxHeading-360;
+				if((theHeading < minHeading) || (theHeading > maxHeading)) {
+					mode.mode = 'track';
+					header = dashboardToHeadingAlarmTXT;
+					alarmJS = 'toHeadingAlarm();';
+					alarm = true;
+				}
 			}
 		}
-		if(mode.depthAlarm && (tpv['depth'].value != (null || undefined))) {
+		if(mode.depthAlarm && tpv['depth'] && (tpv['depth'].value != (null || undefined))) {
 			if(tpv['depth'].value <= mode.minDepthValue) {
 				mode.mode = 'depth';
 				header = dashboardDepthAlarmTXT;
@@ -377,6 +409,7 @@ plugin.start = function (options, restartPlugin) {
 				alarm = true;
 			}
 		}
+		//app.debug('alarm=',alarm,'mode.mode=',mode.mode,'mode.mob=',mode.mob);
 
 		// Что будем рисовать
 		const parms = Object.keys(displayData);
@@ -438,68 +471,83 @@ plugin.start = function (options, restartPlugin) {
 
 		const rumbNames = ['&nbsp;&nbsp;&nbsp;N&nbsp;&nbsp;&nbsp;','NNE','&nbsp;NE&nbsp;','ENE','&nbsp;&nbsp;E&nbsp;&nbsp;','ESE','&nbsp;SE&nbsp;','SSE','&nbsp;&nbsp;&nbsp;S&nbsp;&nbsp;&nbsp;','SSW','&nbsp;SW&nbsp;','WSW','&nbsp;&nbsp;W&nbsp;&nbsp;','WNW','&nbsp;NW&nbsp;','NNW'];
 		let rumbNum;
-		if(mode.magnetic && tpv['magtrack']) rumbNum = Math.round(tpv['magtrack'].value/22.5);
-		else if(tpv['track']) rumbNum = Math.round(tpv['track'].value/22.5);
+		if(mode.toHeadingMagnetic && tpv['magtrack']) theHeading = tpv['magtrack'].value;
+		else if(tpv['track']) theHeading = tpv['track'].value; 	// тревога прозвучит, даже если был указан магнитный курс, но его нет
+		else theHeading = null;
+		if(theHeading !== null){
+			rumbNum = theHeading;
+			rumbNum = Math.round(rumbNum/22.5);
+			if(rumbNum==16) rumbNum = 0;
+		}
 		else rumbNum = null;
-		if(rumbNum==16) rumbNum = 0;
-		//app.debug("rumbNum=",rumbNum);
+		let currRumb = ['   ','   ','    ','   ','   ','   ','    ','   ','   ','   ','    ','   ','   ','   ','    ','   '];
 		currRumb[rumbNum] = rumbNames[rumbNum];
 
+		let MOBtxt = '';
+		if(mode.mob) {
+			MOBtxt = `<div style="position:absolute;left:1%;right:auto;top:20%;opacity: 0.3;"  class="big_mid_symbol wb"><span style="">${dashboardMOBTXT}</span></div>`;
+			if(mobPosition){
+				toHeadingAlarm = true;
+				mode.toHeadingValue = bearing(mobPosition[0],mobPosition[1]);
+				//app.debug('mode.toHeadingValue=',mode.toHeadingValue,mobPosition[0],mobPosition[1]);
+			}
+		}
+
 		let percent=null;
-		if(mode.toHeadingAlarm) {
+		if(toHeadingAlarm) {
 			//mode.toHeadingValue =30;
 			// Метка указанного направления
 			if((mode.toHeadingValue>315)&&(mode.toHeadingValue<360)){
-				percent = 100 - (mode.toHeadingValue - 315)*100/90;
+				percent = 100 - (mode.toHeadingValue - 313)*100/90;
 				currDirectMark = `<img src='static/img/markNNW.png' style='display:block;position:fixed;top:0;right:${percent}%;' class='markVert'>`;
 			} 
 			else if(mode.toHeadingValue == 0){
 				currDirectMark = `<img src='static/img/markN.png' style='display:block;position:fixed;top:0;left:49.5%;' class='markVert'>`;
 			}
 			else if((mode.toHeadingValue>0)&&(mode.toHeadingValue<45)){
-				percent = (mode.toHeadingValue+45)*100/90;
+				percent = (mode.toHeadingValue+43)*100/90;
 				currDirectMark = `<img src='static/img/markNNE.png' style='display: block;position: fixed;top:0;left:${percent}%;' class='markVert'>`;
 			}
 			else if(mode.toHeadingValue == 45){
 				currDirectMark = `<img src='static/img/markNE.png' style='display: block;position: fixed;top:0;right:0;' class='markVert'>`;
 			}
 			else if((mode.toHeadingValue > 45) && (mode.toHeadingValue < 90)){
-				percent = 100 - (mode.toHeadingValue-45)*100/90;
+				percent = 100 - (mode.toHeadingValue-43)*100/90;
 				currDirectMark = `<img src='static/img/markENE.png' style='display: block;position: fixed;right:0;bottom:${percent}%;' class='markHor'>`;
 			}
 			else if(mode.toHeadingValue == 90){
 				currDirectMark = `<img src='static/img/markE.png' style='display: block;position: fixed;right:0;top:49%;' class='markHor'>`;
 			}
 			else if((mode.toHeadingValue > 90) && (mode.toHeadingValue < 135)){
-				percent = (mode.toHeadingValue-45)*100/90;
+				percent = (mode.toHeadingValue-47)*100/90;
 				currDirectMark = `<img src='static/img/markESE.png' style='display: block;position: fixed;right:0;top:${percent}%;' class='markHor'>`;
 			}
 			else if(mode.toHeadingValue == 135){
 				currDirectMark = `<img src='static/img/markSE.png' style='display: block;position: fixed;bottom:0;right:0;' class='markHor'>`;
 			}
 			else if((mode.toHeadingValue>135)&&(mode.toHeadingValue<180)){
-				percent = 100 - (mode.toHeadingValue-135)*100/90;
+				percent = 100 - (mode.toHeadingValue-133)*100/90;
 				currDirectMark = `<img src='static/img/markSSE.png' style='display: block;position: fixed;bottom:0;left:${percent}%;' class='markVert'>`;
 			}
 			else if(mode.toHeadingValue == 180){
 				currDirectMark = `<img src='static/img/markS.png' style='display: block;position: fixed;bottom:0;left:49.5%;' class='markVert'>`;
 			}
 			else if((mode.toHeadingValue>180)&&(mode.toHeadingValue<225)){
-				percent = (mode.toHeadingValue-135)*100/90;
+				percent = (mode.toHeadingValue-137)*100/90;
 				currDirectMark = `<img src='static/img/markSSW.png' style='display: block;position: fixed;bottom:0;right:${percent}%;' class='markVert'>`;
 			}
 			else if(mode.toHeadingValue==225){
 				currDirectMark = `<img src='static/img/markSW.png' style='display: block;position: fixed;bottom:0;left:0;' class='markHor'>`;
 			}
 			else if((mode.toHeadingValue>225)&&(mode.toHeadingValue<270)){
-				percent = 100 - (mode.toHeadingValue-225)*100/90;
+				percent = 100 - (mode.toHeadingValue-223)*100/90;
 				currDirectMark = `<img src='static/img/markWSW.png' style='display:block;position:fixed;left:0;top:${percent}%;' class='markHor'>`;
 			}
 			else if(mode.toHeadingValue == 270){
 				currDirectMark = `<img src='static/img/markW.png' style='display: block;position: fixed;left:0;top:49%;' class='markHor'>`;
 			}
 			else if((mode.toHeadingValue>270)&&(mode.toHeadingValue<315)){
-				percent = (mode.toHeadingValue-225)*100/90;
+				percent = (mode.toHeadingValue-227)*100/90;
 				currDirectMark = `<img src='static/img/markWNW.png' style='display:block;position:fixed;left:0;bottom:${percent}%;' class='markHor'>`;
 			}
 			else if(mode.toHeadingValue==315){
@@ -546,6 +594,7 @@ plugin.start = function (options, restartPlugin) {
 			fontZ = Math.round((1/fontZ)*100);
 			symbol = "<span style='font-size:"+fontZ+"%;'>"+symbol+"</span>";
 		}
+		// Вся переменная mode является "сессией" и всегда сохраняется целиком
 		uri = encodeURI(`http://${dashboardHost}:${dashboardPort}/?session=${JSON.stringify(mode)}`);
 
 		//app.debug("menu=",menu);
@@ -773,6 +822,7 @@ return matches ? decodeURIComponent(matches[1]) : undefined;
 		<span class='mid_symbol' style='vertical-align:middle; padding: 0; margin: 0;'>
 			${header}
 		</span>
+		${MOBtxt}
 	</div>
 	<div id='dashboard' class='
 		`;
@@ -991,6 +1041,42 @@ jsTest();
 		server.close();
 		app.debug('Dashboard server stopped');
 	})
+
+
+
+	function bearing(latlng1, latlng2) {
+	/* азимут направления между двумя точками в градусах */
+	//console.log('[bearing] input','latlng1',latlng1,'latlng2',latlng2);
+	const rad = Math.PI/180;
+	let lat1,lat2,lon1,lon2;
+	if(Array.isArray(latlng1)){
+		lat1 = latlng1[1] * rad;
+		lon1 = latlng1[0] * rad;
+	}
+	else{
+		lat1 = latlng1.lat * rad;
+		lon1 = latlng1.lng * rad;
+	}
+	if(Array.isArray(latlng2)){
+		lat2 = latlng2[1] * rad;
+		lon2 = latlng2[0] * rad;
+	}
+	else{
+		lat2 = latlng2.lat * rad;
+		lon2 = latlng2.lng * rad;
+	}
+	//app.debug('lat1=',lat1,'lat2=',lat2,'lon1=',lon1,'lon2=',lon2);
+
+	let y = Math.sin(lon2 - lon1) * Math.cos(lat2);
+	let x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(lon2 - lon1);
+	//console.log('x',x,'y',y)
+
+	let bearing = ((Math.atan2(y, x) * 180 / Math.PI) + 360) % 360;
+	if(bearing >= 360) bearing = bearing-360;
+
+	return bearing;
+	} // end function bearing
+
 	
 }; // end function plugin.start
 
