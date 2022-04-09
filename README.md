@@ -49,6 +49,9 @@ Press Submit to save changes.
 * [Typicons by Stephen Hutchings](https://icon-icons.com/pack/Typicons/1144) for icons.
 * [ryanflorence](https://gist.github.com/ryanflorence/701407) for ideas.
 
+## SignalK alarms
+Since the SignalK does not any alarm handling, e-inkDashboard has its own. But e-inkDashboard sets the SugnalK's alarm states for velocity, depth and course and raises the SugnalK's alarms notifications.
+
 ## Support
 
 [Discussions](https://github.com/VladimirKalachikhin/Galadriel-map/discussions)
