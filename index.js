@@ -84,6 +84,14 @@ plugin.schema = {
 			`,
 			'default': true
 		},
+		'updNotifications':{
+			'type': 'boolean',
+			'title': 'Update SignalK notifications',
+			'description': `Updating the SignalK notification system value zones and raising alarms. Note that
+			each instance of the dashboard has its own alarms, but SignalK alert is one for all.
+			`,
+			'default': true
+		},
 	}
 };
 
@@ -268,7 +276,7 @@ plugin.start = function (options, restartPlugin) {
 			mode.maxSpeedValue = parseFloat(inData['maxSpeedValue']);
 			if(!mode.maxSpeedValue) mode.maxSpeedAlarm = false;
 
-			mode.toHeadingAlarm = inData['toHeadingAlarm'];
+			mode.toHeadingAlarm = inData['toHeadingAlarmCheck'];
 			mode.toHeadingValue = parseFloat(inData['toHeadingValue']);
 			mode.toHeadingPrecision = parseFloat(inData['toHeadingPrecision']);
 			mode.toHeadingMagnetic = mode.magnetic;
@@ -278,199 +286,55 @@ plugin.start = function (options, restartPlugin) {
 			// Считаем, что кроме нас границы никто не ставит, потому что если ставит, то как в них разобраться, чтобы изменить нужное? Агащазкакже, не ставит...
 			// Кароче, облом. Изменить meta не удаётся. Кароче, оказалось, что для meta есть специальный синтаксис. Б...
 			// Скорость
-			if(mode.minSpeedAlarm || mode.maxSpeedAlarm){
-				let zones=[],minVal=0,maxVal=102.2;
-				if(mode.minSpeedAlarm) {
-					minVal = mode.minSpeedValue*1000/(60*60);
+			if(options.updNotifications){
+				if(mode.minSpeedAlarm || mode.maxSpeedAlarm){
+					let zones=[],minVal=0,maxVal=102.2;
+					if(mode.minSpeedAlarm) {
+						minVal = mode.minSpeedValue*1000/(60*60);
+						zones.push({lower: 0, upper: minVal, state: "alarm"});
+					}
+					if(mode.maxSpeedAlarm) {
+						maxVal = mode.maxSpeedValue*1000/(60*60);
+						zones.push({lower: maxVal, upper: 102.2, state: "alarm"});
+					}
+					zones.push({lower: minVal, upper: maxVal, state: "normal"});
+					setSKzones(options.speedProp.feature,zones);	// установим границы значений
+				}
+				else {
+					setSKzones(options.speedProp.feature,null,null);	// уберём границы значений
+					setSKnotification(options.speedProp.feature,null) 	// уберём оповещение
+				}
+				// Глубина
+				if(mode.depthAlarm) {
+					let zones=[],minVal=0,maxVal=11000;
+					minVal = mode.minDepthValue;
 					zones.push({lower: 0, upper: minVal, state: "alarm"});
+					zones.push({lower: minVal, upper: maxVal, state: "normal"});
+					//app.debug('zones:',zones);
+					setSKzones(options.depthProp.feature,zones);	// установим границы значений
 				}
-				if(mode.maxSpeedAlarm) {
-					maxVal = mode.maxSpeedValue*1000/(60*60);
-					zones.push({lower: maxVal, upper: 102.2, state: "alarm"});
+				else {
+					setSKzones(options.depthProp.feature,null,null);	// уберём границы значений
+					setSKnotification(options.depthProp.feature,null) 	// уберём оповещение
 				}
-				zones.push({lower: minVal, upper: maxVal, state: "normal"});
-				app.handleMessage(plugin.id, {
-					context: 'vessels.self',
-					updates: [
-						{
-							source: { label: plugin.id },
-							timestamp: new Date().toISOString(),
-							meta: [
-								{
-									path: options.speedProp.feature,
-									value: {
-										alarmMethod: ["sound", "visual"],
-										zones : zones
-									}
-								}
-							],
-						}
-					]
-				});
+				// Направление
+				if(mode.toHeadingAlarm) {
+					let zones=[],minVal,maxVal;
+					minVal = mode.toHeadingValue-mode.toHeadingPrecision;
+					if(minVal<0) minVal = minVal+360;
+					maxVal = mode.toHeadingValue+mode.toHeadingPrecision;
+					if(maxVal>=360) maxVal = maxVal-360;
+					zones.push({lower: 0, upper: minVal, state: "alarm"});
+					zones.push({lower: maxVal, upper: 360, state: "alarm"});
+					zones.push({lower: minVal, upper: maxVal, state: "normal"});
+					//app.debug('zones:',zones);
+					setSKzones(options.trackProp.feature,zones);	// установим границы значений
+				}
+				else {
+					setSKzones(options.trackProp.feature,null,null);	// уберём границы значений
+					setSKnotification(options.trackProp.feature,null) 	// уберём оповещение
+				}
 			}
-			else {
-				app.handleMessage(plugin.id, {
-					context: 'vessels.self',
-					updates: [
-						{
-							source: { label: plugin.id },
-							timestamp: new Date().toISOString(),
-							meta: [
-								{
-									path: options.speedProp.feature,
-									value: {
-										alarmMethod: null,
-										zones : null
-									}
-								}
-							],
-						}
-					]
-				});
-				app.handleMessage(plugin.id, {
-					context: 'vessels.self',
-					updates: [
-						{
-							source: { label: plugin.id },
-							timestamp: new Date().toISOString(),
-							values: [
-								{
-									path: 'notifications.'+options.speedProp.feature,
-									value: null
-								}
-							],
-						}
-					]
-				});
-			}
-			// Глубина
-			if(mode.depthAlarm) {
-				let zones=[],minVal=0,maxVal=11000;
-				minVal = mode.minDepthValue;
-				zones.push({lower: 0, upper: minVal, state: "alarm"});
-				zones.push({lower: minVal, upper: maxVal, state: "normal"});
-				//app.debug('zones:',zones);
-				app.handleMessage(plugin.id, {
-					context: 'vessels.self',
-					updates: [
-						{
-							source: { label: plugin.id },
-							timestamp: new Date().toISOString(),
-							meta: [
-								{
-									path: options.depthProp.feature,
-									value: {
-										alarmMethod: ["sound", "visual"],
-										zones : zones
-									}
-								}
-							],
-						}
-					]
-				});
-			}
-			else {
-				app.handleMessage(plugin.id, {
-					context: 'vessels.self',
-					updates: [
-						{
-							source: { label: plugin.id },
-							timestamp: new Date().toISOString(),
-							meta: [
-								{
-									path: options.depthProp.feature,
-									value: {
-										alarmMethod: null,
-										zones : null
-									}
-								}
-							],
-						}
-					]
-				});
-				app.handleMessage(plugin.id, {
-					context: 'vessels.self',
-					updates: [
-						{
-							source: { label: plugin.id },
-							timestamp: new Date().toISOString(),
-							values: [
-								{
-									path: 'notifications.'+options.depthProp.feature,
-									value: null
-								}
-							],
-						}
-					]
-				});
-			}
-			// Направление
-			if(mode.toHeadingAlarm) {
-				let zones=[],minVal,maxVal;
-				minVal = mode.toHeadingValue-mode.toHeadingPrecision;
-				if(minVal<0) minVal = minVal+360;
-				maxVal = mode.toHeadingValue+mode.toHeadingPrecision;
-				if(maxVal>=360) maxVal = maxVal-360;
-				zones.push({lower: 0, upper: minVal, state: "alarm"});
-				zones.push({lower: maxVal, upper: 360, state: "alarm"});
-				zones.push({lower: minVal, upper: maxVal, state: "normal"});
-				//app.debug('zones:',zones);
-				app.handleMessage(plugin.id, {
-					context: 'vessels.self',
-					updates: [
-						{
-							source: { label: plugin.id },
-							timestamp: new Date().toISOString(),
-							meta: [
-								{
-									path: options.trackProp.feature,
-									value: {
-										alarmMethod: ["sound", "visual"],
-										zones : zones
-									}
-								}
-							],
-						}
-					]
-				});
-			}
-			else {
-				app.handleMessage(plugin.id, {
-					context: 'vessels.self',
-					updates: [
-						{
-							source: { label: plugin.id },
-							timestamp: new Date().toISOString(),
-							meta: [
-								{
-									path: options.trackProp.feature,
-									value: {
-										alarmMethod: null,
-										zones : null
-									}
-								}
-							],
-						}
-					]
-				});
-				app.handleMessage(plugin.id, {
-					context: 'vessels.self',
-					updates: [
-						{
-							source: { label: plugin.id },
-							timestamp: new Date().toISOString(),
-							values: [
-								{
-									path: 'notifications.'+options.trackProp.feature,
-									value: null
-								}
-							],
-						}
-					]
-				});
-			}
-
-
 		}
 
 		// Получение приборов
@@ -574,186 +438,59 @@ plugin.start = function (options, restartPlugin) {
 			if(tpv['speed'].value*60*60/1000 <= mode.minSpeedValue) {
 				mode.mode = 'speed';
 				header = dashboardMinSpeedAlarmTXT;
-				//alarmJS = 'minSpeedAlarm();';
+				alarmJS = 'minSpeedAlarmSound();';
 				alarm = true;
-				app.handleMessage(plugin.id, {
-					context: 'vessels.self',
-					updates: [
-						{
-							source: { label: plugin.id },
-							timestamp: new Date().toISOString(),
-							values: [
-								{
-									path: 'notifications.'+options.speedProp.feature,
-									value: {
-										method: ["sound", "visual"],
-										state: "alarm",
-										message: "Low speed!"
-									}
-								}
-							],
-						}
-					]
-				});			
+				if(options.updNotifications) setSKnotification(options.speedProp.feature,{method: ["sound", "visual"],state: "alarm",message: "Low speed!"}); 	// Установим оповещение
 			}
 			else{
-				app.handleMessage(plugin.id, {
-					context: 'vessels.self',
-					updates: [
-						{
-							source: { label: plugin.id },
-							timestamp: new Date().toISOString(),
-							values: [
-								{
-									path: 'notifications.'+options.speedProp.feature,
-									value: null
-								}
-							],
-						}
-					]
-				});
+				if(options.updNotifications) setSKnotification(options.speedProp.feature,null); 	// Уберём оповещение
 			}
 		}
 		if(mode.maxSpeedAlarm && tpv['speed'] && (tpv['speed'].value != (null || undefined))) {
 			if(tpv['speed'].value*60*60/1000 >= mode.maxSpeedValue) {
 				mode.mode = 'speed';
 				header = dashboardMaxSpeedAlarmTXT;
-				alarmJS = 'maxSpeedAlarm();';
+				alarmJS = 'maxSpeedAlarmSound();';
 				alarm = true;
-				app.handleMessage(plugin.id, {
-					context: 'vessels.self',
-					updates: [
-						{
-							source: { label: plugin.id },
-							timestamp: new Date().toISOString(),
-							values: [
-								{
-									path: 'notifications.'+options.speedProp.feature,
-									value: {
-										method: ["sound", "visual"],
-										state: "alarm",
-										message: "Hight speed!"
-									}
-								}
-							],
-						}
-					]
-				});			
+				if(options.updNotifications) setSKnotification(options.speedProp.feature,{method: ["sound", "visual"],state: "alarm",message: "Hight speed!"}); 	// Установим оповещение
 			}
 			else{
-				app.handleMessage(plugin.id, {
-					context: 'vessels.self',
-					updates: [
-						{
-							source: { label: plugin.id },
-							timestamp: new Date().toISOString(),
-							values: [
-								{
-									path: 'notifications.'+options.speedProp.feature,
-									value: null
-								}
-							],
-						}
-					]
-				});
+				if(options.updNotifications) setSKnotification(options.speedProp.feature,null); 	// Уберём оповещение
 			}
 		}
 		let theHeading=null, toHeadingAlarm=false;
 		if(mode.toHeadingAlarm && !mode.mob) {
 			toHeadingAlarm=true;
+			let theHeading=null;	// это будет другой theHeading, используемый только для вычисления тревоги
 			if(mode.toHeadingMagnetic && tpv.magtrack) theHeading = tpv.magtrack.value;
 			else if(tpv.track) theHeading = tpv.track.value; 	// тревога прозвучит, даже если был указан магнитный курс, но его нет			
-			let minHeading = mode.toHeadingValue - mode.toHeadingPrecision;
 			if(theHeading){
+				let minHeading = mode.toHeadingValue - mode.toHeadingPrecision;
 				if(minHeading<0) minHeading = minHeading+360;
 				let maxHeading = mode.toHeadingValue + mode.toHeadingPrecision;
 				if(maxHeading>=360) maxHeading = maxHeading-360;
 				if((theHeading < minHeading) || (theHeading > maxHeading)) {
 					mode.mode = 'track';
 					header = dashboardToHeadingAlarmTXT;
-					alarmJS = 'toHeadingAlarm();';
+					alarmJS = 'toHeadingAlarmSound();';
 					alarm = true;
-					app.handleMessage(plugin.id, {
-						context: 'vessels.self',
-						updates: [
-							{
-								source: { label: plugin.id },
-								timestamp: new Date().toISOString(),
-								values: [
-									{
-										path: 'notifications.'+options.trackProp.feature,
-										value: {
-											method: ["sound", "visual"],
-											state: "alarm",
-											message: "Course lost!"
-										}
-									}
-								],
-							}
-						]
-					});					
+					if(options.updNotifications) setSKnotification(options.trackProp.feature,{method: ["sound", "visual"],state: "alarm",message: "Course lost!"}); 	// Установим оповещение
 				}
 			}
 			else {
-				app.handleMessage(plugin.id, {
-					context: 'vessels.self',
-					updates: [
-						{
-							source: { label: plugin.id },
-							timestamp: new Date().toISOString(),
-							values: [
-								{
-									path: 'notifications.'+options.trackProp.feature,
-									value: null
-								}
-							],
-						}
-					]
-				});
+				if(options.updNotifications) setSKnotification(options.trackProp.feature,null); 	// Уберём оповещение
 			}
 		}
 		if(mode.depthAlarm && tpv['depth'] && (tpv['depth'].value != (null || undefined))) {
 			if(tpv['depth'].value <= mode.minDepthValue) {
 				mode.mode = 'depth';
 				header = dashboardDepthAlarmTXT;
-				alarmJS = 'depthAlarm();';
+				alarmJS = 'depthAlarmSound();';
 				alarm = true;
-				app.handleMessage(plugin.id, {
-					context: 'vessels.self',
-					updates: [
-						{
-							source: { label: plugin.id },
-							timestamp: new Date().toISOString(),
-							values: [
-								{
-									path: 'notifications.'+options.depthProp.feature,
-									value: {
-										method: ["sound", "visual"],
-										state: "alarm",
-										message: "Shallow!"
-									}
-								}
-							],
-						}
-					]
-				});				
+				if(options.updNotifications) setSKnotification(options.depthProp.feature,{method: ["sound", "visual"],state: "alarm",message: "Shallow!"}); 	// Установим оповещение
 			}
 			else {
-				app.handleMessage(plugin.id, {
-					context: 'vessels.self',
-					updates: [
-						{
-							source: { label: plugin.id },
-							timestamp: new Date().toISOString(),
-							values: [
-								{
-									path: 'notifications.'+options.depthProp.feature,
-									value: null
-								}
-							],
-						}
-					]
-				});
+				if(options.updNotifications) setSKnotification(options.depthProp.feature,null); 	// Уберём оповещение
 			}
 		}
 		//app.debug('alarm=',alarm,'mode.mode=',mode.mode,'mode.mob=',mode.mob);
@@ -816,11 +553,12 @@ plugin.start = function (options, restartPlugin) {
 		}
 		//app.debug('Exit cycle type=',type,'prevMode=',prevMode,"mode.mode=",mode.mode,'nextMode=',nextMode);
 
+		if(mode.toHeadingMagnetic && tpv['magtrack']) theHeading = tpv['magtrack'].value;
+		else if(tpv['track']) theHeading = tpv['track'].value; 	// 
+		else theHeading = null;
+
 		const rumbNames = ['&nbsp;&nbsp;&nbsp;N&nbsp;&nbsp;&nbsp;','NNE','&nbsp;NE&nbsp;','ENE','&nbsp;&nbsp;E&nbsp;&nbsp;','ESE','&nbsp;SE&nbsp;','SSE','&nbsp;&nbsp;&nbsp;S&nbsp;&nbsp;&nbsp;','SSW','&nbsp;SW&nbsp;','WSW','&nbsp;&nbsp;W&nbsp;&nbsp;','WNW','&nbsp;NW&nbsp;','NNW'];
 		let rumbNum;
-		if(mode.toHeadingMagnetic && tpv['magtrack']) theHeading = tpv['magtrack'].value;
-		else if(tpv['track']) theHeading = tpv['track'].value; 	// тревога прозвучит, даже если был указан магнитный курс, но его нет
-		else theHeading = null;
 		if(theHeading !== null){
 			rumbNum = theHeading;
 			rumbNum = Math.round(rumbNum/22.5);
@@ -835,7 +573,7 @@ plugin.start = function (options, restartPlugin) {
 			MOBtxt = `<div style="position:absolute;left:1%;right:auto;top:20%;opacity: 0.3;"  class="big_mid_symbol wb"><span style="">${dashboardMOBTXT}</span></div>`;
 			if(mobPosition){
 				toHeadingAlarm = true;
-				mode.toHeadingValue = bearing(mobPosition[0],mobPosition[1]);
+				mode.toHeadingValue = Math.round(bearing(mobPosition[0],mobPosition[1]));
 				//app.debug('mode.toHeadingValue=',mode.toHeadingValue,mobPosition[0],mobPosition[1]);
 			}
 		}
@@ -1076,7 +814,7 @@ return matches ? decodeURIComponent(matches[1]) : undefined;
 			responseBody += ` style='height:3em;width:3rem;'
 			></td><td>${dashboardMaxSpeedMenuTXT}, ${dashboardSpeedMesTXT}</td><td style='width:10%;'><input type='text' name=maxSpeedValue value='${mode.maxSpeedValue?mode.maxSpeedValue:''}' style='width:95%;font-size:inherit;'></td>
 		</tr><tr style='height:2rem;'>
-			<td><input type='checkbox' name='toHeadingAlarm' value='1'`;
+			<td><input type='checkbox' name='toHeadingAlarmCheck' value='1'`;
 			if(mode.toHeadingAlarm) responseBody += 'checked';
 			responseBody += ` style='height:3em;width:3rem;' ></td><td>`;
 			if(mode.magnetic){
@@ -1423,7 +1161,47 @@ jsTest();
 
 	return bearing;
 	} // end function bearing
-
+	
+	function setSKzones(path,zones,alarmMethod=["sound", "visual"]){
+	// Чисто потому что запись очень громоздкая
+	app.handleMessage(plugin.id, {
+		context: 'vessels.self',
+		updates: [
+			{
+				source: { label: plugin.id },
+				timestamp: new Date().toISOString(),
+				meta: [
+					{
+						path: path,
+						value: {
+							alarmMethod: alarmMethod,
+							zones : zones
+						}
+					}
+				],
+			}
+		]
+	});
+	} // end function setSKzones
+	
+	function setSKnotification(path,value){
+	// Чисто потому что запись очень громоздкая
+	app.handleMessage(plugin.id, {
+		context: 'vessels.self',
+		updates: [
+			{
+				source: { label: plugin.id },
+				timestamp: new Date().toISOString(),
+				values: [
+					{
+						path: 'notifications.'+path,
+						value: value
+					}
+				],
+			}
+		]
+	});			
+	} // end function setSKnotification
 	
 }; // end function plugin.start
 
