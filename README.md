@@ -44,13 +44,14 @@ Use Server -> Plugin Config menu to start plugin and configure port and update f
 Set update frequency to comfort rate for your device. Note that too quick update make difficult a mode change, but to slow update is dangerous of not noticing a rapidly changing parameter such as depth.  
 Press Submit to save changes.
 
+## SignalK alarms
+Since the SignalK does not any alarm handling, e-inkDashboard has its own. But the e-inkDashboard sets the SugnalK's alarm states for velocity, depth and course and raises the SugnalK's alarms notifications.  
+Besides that the e-inkDashboard take MOB notification from SignalK. If it has spatial info ([GaladrielMap SignalK edition](https://github.com/VladimirKalachikhin/GaladrielMapSK) send it) - then displays direction to MOB.
+
 ## Thanks
 
 * [Typicons by Stephen Hutchings](https://icon-icons.com/pack/Typicons/1144) for icons.
 * [ryanflorence](https://gist.github.com/ryanflorence/701407) for ideas.
-
-## SignalK alarms
-Since the SignalK does not any alarm handling, e-inkDashboard has its own. But e-inkDashboard sets the SugnalK's alarm states for velocity, depth and course and raises the SugnalK's alarms notifications.
 
 ## Support
 
