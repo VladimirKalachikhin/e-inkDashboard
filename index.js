@@ -111,6 +111,7 @@ plugin.start = function (options, restartPlugin) {
 	const addrStart = dashboardHost.indexOf('inet')+4;
 	const addrEnd = dashboardHost.indexOf('/');
 	dashboardHost = dashboardHost.slice(addrStart,addrEnd).trim();
+	if(!dashboardHost) dashboardHost = 'localhost';
 	//app.debug(dashboardHost);
 	const dashboardPort = options.dashboardPort;
 
@@ -420,7 +421,7 @@ plugin.start = function (options, restartPlugin) {
 			for(let props in displayData){
 				for(let variant of displayData[props].variants){
 					if(variant[0] in tpv){
-						//console.log(displayData[props],variant[0])
+						//if(variant[0]=='depth') console.log('Очищаем данные от устаревших',variant[0],tpv[variant[0]].timestamp,Date.now()-tpv[variant[0]].timestamp,displayData[props].fresh);
 						if(tpv[variant[0]] && ((Date.now()-tpv[variant[0]].timestamp)>displayData[props].fresh)){
 							app.debug('Property',variant[0],'expired on',(Date.now()-tpv[variant[0]].timestamp)/1000,'sec.');
 							delete tpv[variant[0]]; 	// 
