@@ -394,6 +394,10 @@ plugin.start = function (options, restartPlugin) {
 		}
 		//app.debug('mode.mob =',mode.mob);
 
+		// перепишем теневое значение mode актуальным, раз такова воля юзера
+		const modeStr = JSON.stringify(mode);
+		if(modeStr != inData.session) inData.session = modeStr;	
+
 		// Поехали
 		let alarm = false, prevMode = null, nextMode = null, currDirectMark='', currTrackMark='';
 		let enough = false, type, parm, variant, variantType, symbol='', nextsymbol='', header = '';
@@ -681,7 +685,7 @@ plugin.start = function (options, restartPlugin) {
 			symbol = "<span style='font-size:"+fontZ+"%;'>"+symbol+"</span>";
 		}
 		// Вся переменная mode является "сессией" и всегда сохраняется целиком
-		uri = encodeURI(`http://${dashboardHost}:${dashboardPort}/?session=${JSON.stringify(mode)}`);
+		uri = encodeURI(`http://${dashboardHost}:${dashboardPort}/?session=${inData.session}`);
 
 		//app.debug("menu=",menu);
 		let responseBody = `<!DOCTYPE html >
