@@ -1119,8 +1119,8 @@ jsTest();
 	}; // end function dashboardServer
 	
 	const server = http.createServer(dashboardServer); 	// собственно, запустим сервер
-	server.listen(dashboardPort, dashboardHost, () => {
-		app.debug(`Dashboard server running at http://${dashboardHost}:${dashboardPort}/`);
+	server.listen(dashboardPort, '0.0.0.0', () => {
+		app.debug(`Dashboard server running at http://0.0.0.0:${dashboardPort}/`);
 		app.setPluginStatus(`Normal run, open dashboard at http://${dashboardHost}:${dashboardPort}/`);
 	});
 	unsubscribes.push(() => { 	// функция остановки сервера при остановке плугина

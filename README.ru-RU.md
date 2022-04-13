@@ -1,3 +1,4 @@
+[In English](https://github.com/VladimirKalachikhin/e-inkDashboard/blob/master/README.md)  
 # e-ink Dashboard for Signal K [![License: CC BY-SA 4.0](https://img.shields.io/badge/License-CC%20BY--SA%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-sa/4.0/)
 
 e-inkDashboard -- это расширение для Signal K, веб-приложение, которое показывает некоторые параметры от сервера Signal K на слабых (и/или старых) устройствах, таких как читалки электронных книг с экраном на электронных чернилах или старые планшеты.  
