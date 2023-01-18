@@ -9,28 +9,10 @@ plugin.name = 'e-inkDashboard';
 plugin.description = 'e-ink screens - optimized dashboard with some Signal K instruments';
 
 plugin.schema = {
-	'title': 'e-inkDashboard',
+	'title': plugin.name,
 	'type': 'object',
 	'required': [],
 	'properties': {
-		'trackProp':{
-			'title': '',
-			'description': '',
-			'type': 'object',
-			'properties': {
-				'feature':{
-					'type': 'string',
-					'title': 'Will be displayed as Course:',
-					'enum': [
-						'Course over ground (COG)',
-						'Heading true (HT)',
-						'Heading magnetic (HM)',
-						'Heading compass (HC)',
-					],
-					'default': 'Course over ground (COG)'
-				},
-			},
-		},
 		'speedProp':{
 			'title': '',
 			'type': 'object',
@@ -115,11 +97,6 @@ plugin.start = function (options, restartPlugin) {
 	//app.debug(dashboardHost);
 	const dashboardPort = options.dashboardPort;
 
-	if(options.trackProp.feature.includes('COG')) options.trackProp.feature = 'navigation.courseOverGroundTrue';
-	else if(options.trackProp.feature.includes('HT')) options.trackProp.feature = 'navigation.headingTrue';
-	else if(options.trackProp.feature.includes('HM')) options.trackProp.feature = 'navigation.headingMagnetic';
-	else if(options.trackProp.feature.includes('HC')) options.trackProp.feature = 'navigation.headingCompass';
-
 	if(options.speedProp.feature.includes('SOG')) options.speedProp.feature = 'navigation.speedOverGround';
 	else if(options.speedProp.feature.includes('STW')) options.speedProp.feature = 'navigation.speedThroughWater';
 
@@ -143,6 +120,7 @@ plugin.start = function (options, restartPlugin) {
 </html>
 	`;
 	fs.writeFileSync(__dirname+'/public/index.html',indexhtml);
+	var tpv = {};
 	
 	// функция, реализующая функциональность сервера. Поскольку в node.js всё через жопу -- нельзя заставить уже имеющийся сервер выполнять дополнительные функции, надо организовать свой. Ага, на своём порту, б... Правда, вроде, есть Express, но оно тооооормоооозззззз.
 	function dashboardServer(request, response) { 	
@@ -205,7 +183,9 @@ plugin.start = function (options, restartPlugin) {
 		// Интернационализация
 		if(request.headers['accept-language'].includes('ru')){
 		//if(false){
-			var dashboardHeadingTXT = 'Истинный курс'; 	//  хотя это "путевой угол", "путь"
+			var dashboardCourseTXT = 'Истинный путь';
+			var dashboardHeadingTXT = 'Истинный курс';
+			var dashboardMagCourseTXT = 'Магнитный путь';
 			var dashboardMagHeadingTXT = 'Магнитный курс';
 			var dashboardMagVarTXT = 'Склонение';
 			var dashboardSpeedTXT = 'Скорость';
@@ -219,6 +199,7 @@ plugin.start = function (options, restartPlugin) {
 			var dashboardDepthMenuTXT = 'Опасная глубина';
 			var dashboardMinSpeedMenuTXT = 'Минимальная скорость';
 			var dashboardMaxSpeedMenuTXT = 'Максимальная скорость';
+			var dashboardToCourseAlarmTXT = 'Отклонение от пути';
 			var dashboardToHeadingAlarmTXT = 'Отклонение от курса';
 			var dashboardKeysMenuTXT = 'Используйте клавиши для смены режимов';
 			var dashboardKeySetupTXT = 'Укажите назначение и нажмите клавишу для:';
@@ -229,8 +210,10 @@ plugin.start = function (options, restartPlugin) {
 			var dashboardMOBTXT = 'Человек за бортом!';
 		}
 		else {
-			var dashboardHeadingTXT = 'Course';
-			var dashboardMagHeadingTXT = 'Magnetic course';
+			var dashboardCourseTXT = 'Course';
+			var dashboardHeadingTXT = 'Heading';
+			var dashboardMagCourseTXT = 'Magnetic course';
+			var dashboardMagHeadingTXT = 'Magnetic heading';
 			var dashboardMagVarTXT = 'Magnetic variation';
 			var dashboardSpeedTXT = 'Velocity';
 			var dashboardMinSpeedAlarmTXT = 'Speed too high';
@@ -243,7 +226,8 @@ plugin.start = function (options, restartPlugin) {
 			var dashboardDepthMenuTXT = 'Shallow';
 			var dashboardMinSpeedMenuTXT = 'Min speed';
 			var dashboardMaxSpeedMenuTXT = 'Max speed';
-			var dashboardToHeadingAlarmTXT = 'The course is bad';
+			var dashboardToCourseAlarmTXT = 'The course is bad';
+			var dashboardToHeadingAlarmTXT = 'The heading is bad';
 			var dashboardKeysMenuTXT = 'Use keys to switch the screen mode';
 			var dashboardKeySetupTXT = 'Select purpose and press key for:';
 			var dashboardKeyNextTXT = 'Next mode';
@@ -277,7 +261,19 @@ plugin.start = function (options, restartPlugin) {
 			mode.maxSpeedValue = parseFloat(inData['maxSpeedValue']);
 			if(!mode.maxSpeedValue) mode.maxSpeedAlarm = false;
 
-			mode.toHeadingAlarm = inData['toHeadingAlarmCheck'];
+			if(inData['toHeadingAlarmCheck']){	// запишем в mode.toHeadingAlarm что у нас, собственно, значит toHeading
+				switch(mode.mode){	// хотя здесь ещё может не быть mode.mode
+				case 'track':
+					if(mode.magnetic) mode.toHeadingAlarm = 'navigation.courseOverGroundMagnetic';
+					else mode.toHeadingAlarm = 'navigation.courseOverGroundTrue';
+				case 'heading':
+					if(mode.magnetic) mode.toHeadingAlarm = 'navigation.headingMagnetic';
+					else mode.toHeadingAlarm = 'navigation.headingTrue';
+				default:
+					mode.toHeadingAlarm = 'navigation.courseOverGroundTrue';
+				}
+			}
+			else mode.toHeadingAlarm = false;
 			mode.toHeadingValue = parseFloat(inData['toHeadingValue']);
 			mode.toHeadingPrecision = parseFloat(inData['toHeadingPrecision']);
 			mode.toHeadingMagnetic = mode.magnetic;
@@ -329,41 +325,64 @@ plugin.start = function (options, restartPlugin) {
 					zones.push({lower: maxVal, upper: 360, state: "alarm"});
 					zones.push({lower: minVal, upper: maxVal, state: "normal"});
 					//app.debug('zones:',zones);
-					setSKzones(options.trackProp.feature,zones);	// установим границы значений
+					setSKzones(mode.toHeadingAlarm,zones);	// установим границы значений
 				}
 				else {
-					setSKzones(options.trackProp.feature,null,null);	// уберём границы значений
-					setSKnotification(options.trackProp.feature,null) 	// уберём оповещение
+					setSKzones(mode.toHeadingAlarm,null,null);	// уберём границы значений
+					setSKnotification(mode.toHeadingAlarm,null) 	// уберём оповещение
 				}
 			}
 		}
 
 		// Получение приборов
-		let tpv = {};
+		//var tpv = {};
 		if(app.getSelfPath(options.speedProp.feature)){
 			if(!tpv.speed) tpv.speed = {};
 			tpv.speed.value = app.getSelfPath(options.speedProp.feature).value;
 			tpv.speed.timestamp =  Date.parse(app.getSelfPath(options.speedProp.feature).timestamp);
-		}
-		if(app.getSelfPath(options.trackProp.feature)){
-			if(!tpv.track) tpv.track = {};
-			tpv.track.value = app.getSelfPath(options.trackProp.feature).value *180/Math.PI;
-			tpv.track.timestamp =  Date.parse(app.getSelfPath(options.trackProp.feature).timestamp);
 		}
 		if(app.getSelfPath(options.depthProp.feature)){
 			if(!tpv.depth) tpv.depth = {};
 			tpv.depth.value = app.getSelfPath(options.depthProp.feature).value;
 			tpv.depth.timestamp =  Date.parse(app.getSelfPath(options.depthProp.feature).timestamp);
 		}
+		if(app.getSelfPath('navigation.courseOverGroundTrue')){
+			if(!tpv.track) tpv.track = {};
+			tpv.track.value = app.getSelfPath('navigation.courseOverGroundTrue').value *180/Math.PI;
+			tpv.track.timestamp =  Date.parse(app.getSelfPath('navigation.courseOverGroundTrue').timestamp);
+		}
+		if(app.getSelfPath('navigation.headingTrue')){
+			if(!tpv.heading) tpv.heading = {};
+			tpv.heading.value = app.getSelfPath('navigation.headingTrue').value *180/Math.PI;
+			tpv.heading.timestamp =  Date.parse(app.getSelfPath('navigation.headingTrue').timestamp);
+		}
 		if(app.getSelfPath('navigation.courseOverGroundMagnetic')){
 			if(!tpv.magtrack) tpv.magtrack = {};
 			tpv.magtrack.value = app.getSelfPath('navigation.courseOverGroundMagnetic').value *180/Math.PI;
 			tpv.magtrack.timestamp =  Date.parse(app.getSelfPath('navigation.courseOverGroundMagnetic').timestamp);
 		}
+		if(app.getSelfPath('navigation.headingMagnetic')){
+			if(!tpv.mheading) tpv.mheading = {};
+			tpv.mheading.value = app.getSelfPath('navigation.headingMagnetic').value *180/Math.PI;
+			tpv.mheading.timestamp =  Date.parse(app.getSelfPath('navigation.headingMagnetic').timestamp);
+			if(!tpv.mheading.value) {
+				if(app.getSelfPath('navigation.headingCompass')){
+					tpv.mheading.value = app.getSelfPath('navigation.headingCompass').value *180/Math.PI;
+					tpv.mheading.timestamp =  Date.parse(app.getSelfPath('navigation.headingCompass').timestamp);
+					if(tpv.mheading.value && tpv.magdev !== undefined) tpv.mheading.value += tpv.magdev.value;
+					if(mode.toHeadingAlarm) mode.toHeadingAlarm = 'navigation.headingCompass';
+				}
+			}
+		}
+		if(app.getSelfPath('navigation.magneticVariation')){
+			if(!tpv.magvar) tpv.magvar = {};
+			tpv.magvar.value = app.getSelfPath('navigation.magneticVariation').value *180/Math.PI;
+			tpv.magvar.timestamp =  Date.parse(app.getSelfPath('navigation.magneticVariation').timestamp);
+		}
 		if(app.getSelfPath('navigation.magneticDeviation')){
-		if(!tpv.magvar) tpv.magvar = {};
-		tpv.magvar.value = app.getSelfPath('navigation.magneticDeviation').value *180/Math.PI;
-		tpv.magvar.timestamp =  Date.parse(app.getSelfPath('navigation.magneticDeviation').timestamp);
+			if(!tpv.magdev) tpv.magdev = {};
+			tpv.magdev.value = app.getSelfPath('navigation.magneticDeviation').value *180/Math.PI;
+			tpv.magdev.timestamp =  Date.parse(app.getSelfPath('navigation.magneticDeviation').timestamp);
 		}
 		//app.debug('tpv:',tpv);
 		
@@ -399,13 +418,16 @@ plugin.start = function (options, restartPlugin) {
 		if(modeStr != inData.session) inData.session = modeStr;	
 
 		// Поехали
-		let alarm = false, prevMode = null, nextMode = null, currDirectMark='', currTrackMark='';
-		let enough = false, type, parm, variant, variantType, symbol='', nextsymbol='', header = '';
 		// типы данных, которые, собственно, будем показывать 
 		const displayData = {  	// 
-			'track' : {'variants' : [['track',dashboardHeadingTXT],['magtrack',dashboardMagHeadingTXT]], 	// курс или магнитный курс
+			'track' : {'variants' : [['track',dashboardCourseTXT],['magtrack',dashboardMagCourseTXT]], 	// путь, магнитный путь
 				'precision' : 0,	// точность показываемой цифры, символов после запятой
 				'multiplicator' : 1, 	// на что нужно умножить значение для показа
+				'fresh': (5+options.refreshInterval) * 1000		// время свежести, миллисек.
+			},
+			'heading' : {'variants' : [['heading',dashboardHeadingTXT],['mheading',dashboardMagHeadingTXT]], 	// курс или магнитный курс
+				'precision' : 0,
+				'multiplicator' : 1,
 				'fresh': (5+options.refreshInterval) * 1000		// время свежести, миллисек.
 			},
 			'speed' : {'variants' : [['speed',dashboardSpeedTXT+', '+dashboardSpeedMesTXT]],	// скорость
@@ -425,7 +447,7 @@ plugin.start = function (options, restartPlugin) {
 			for(let props in displayData){
 				for(let variant of displayData[props].variants){
 					if(variant[0] in tpv){
-						//if(variant[0]=='depth') console.log('Очищаем данные от устаревших',variant[0],tpv[variant[0]].timestamp,Date.now()-tpv[variant[0]].timestamp,displayData[props].fresh);
+						//console.log('Очищаем данные от устаревших',variant[0],tpv[variant[0]],Date.now()-tpv[variant[0]].timestamp,displayData[props].fresh);
 						if(tpv[variant[0]] && ((Date.now()-tpv[variant[0]].timestamp)>displayData[props].fresh)){
 							app.debug('Property',variant[0],'expired on',(Date.now()-tpv[variant[0]].timestamp)/1000,'sec.');
 							delete tpv[variant[0]]; 	// 
@@ -436,6 +458,8 @@ plugin.start = function (options, restartPlugin) {
 		}
 		//app.debug('tpv:',tpv);
 
+		let alarm = false, prevMode = null, nextMode = null, currDirectMark='', currTrackMark='';
+		let enough = false, type, parm, variant, variantType, symbol='', nextsymbol='', header = '';
 		// Оповещения в порядке возрастания опасности, реально сработает последнее
 		// Похоже, сам SignalK оповещения не выставляет, или я опять чего-то не понял. Teppo традиционно молчит, доку можно понять, что должен. И по идее -- должен, иначе какой смысл назначать zones. Но -- нет.
 		let alarmJS;
@@ -475,15 +499,22 @@ plugin.start = function (options, restartPlugin) {
 				let maxHeading = mode.toHeadingValue + mode.toHeadingPrecision;
 				if(maxHeading>=360) maxHeading = maxHeading-360;
 				if((theHeading < minHeading) || (theHeading > maxHeading)) {
-					mode.mode = 'track';
-					header = dashboardToHeadingAlarmTXT;
+					switch(mode.mode){
+					case 'track':
+						header = dashboardToCourseAlarmTXT;
+						if(options.updNotifications) setSKnotification(mode.toHeadingAlarm,{method: ["sound", "visual"],state: "alarm",message: "Course lost!"}); 	// Установим оповещение
+						break;
+					case 'heading':
+						header = dashboardToHeadingAlarmTXT;
+						if(options.updNotifications) setSKnotification(mode.toHeadingAlarm,{method: ["sound", "visual"],state: "alarm",message: "Heading lost!"}); 	// Установим оповещение
+						break;
+					}
 					alarmJS = 'toHeadingAlarmSound();';
 					alarm = true;
-					if(options.updNotifications) setSKnotification(options.trackProp.feature,{method: ["sound", "visual"],state: "alarm",message: "Course lost!"}); 	// Установим оповещение
 				}
 			}
 			else {
-				if(options.updNotifications) setSKnotification(options.trackProp.feature,null); 	// Уберём оповещение
+				if(options.updNotifications) setSKnotification(mode.toHeadingAlarm,null); 	// Уберём оповещение
 			}
 		}
 		if(mode.depthAlarm && tpv['depth'] && (tpv['depth'].value != (null || undefined))) {
@@ -546,7 +577,7 @@ plugin.start = function (options, restartPlugin) {
 				//app.debug('Cycle2 type=',type,"mode.mode=",mode.mode,'i=',i);
 				continue;
 			}
-			header = parm['variants'][variant][1];
+			if(!header) header = parm['variants'][variant][1];
 			symbol = Math.round(tpv[variantType].value*parm['multiplicator']*(10**parm['precision']))/(10**parm['precision']);
 			enough = true;
 			cycle = variantType;	// сдедующий тип будем искать по кругу до выбранного
@@ -644,37 +675,39 @@ plugin.start = function (options, restartPlugin) {
 				currDirectMark = `<img src='static/img/markNW.png' style='display: block;position: absolute;top:0;left:0;' class='markHor'>`;
 			}
 			// Метка текущего направления 	theHeading уже есть
-			if((theHeading>315)&&(theHeading<=360)){
-				percent = 100 - (theHeading - 315)*100/90;
-				currTrackMark = `<img src='static/img/markCurrN.png' style='display:block;position:fixed;top:0;right:${percent}%;' class='vert'>`;
-			} 
-			else if((theHeading>=0)&&(theHeading<45)){
-				percent = (theHeading+45)*100/90;
-				currTrackMark = `<img src='static/img/markCurrN.png' style='display: block;position: fixed;top:0;left:${percent}%;' class='vert'>`;
-			}
-			else if(theHeading == 45){
-				currTrackMark = `<img src='static/img/markCurrSE.png' style='display: block;position: fixed;top:0;right:0;' class='vert'>`;
-			}
-			else if((theHeading > 45) && (theHeading < 135)){
-				percent = 100 - (theHeading-45)*100/90;
-				currTrackMark = `<img src='static/img/markCurrE.png' style='display: block;position: fixed;right:0;bottom:${percent}%;' class='hor'>`;
-			}
-			else if(theHeading == 135){
-				currTrackMark = `<img src='static/img/markCurrNE.png' style='display: block;position: fixed;bottom:0;right:0;' class='vert'>`;
-			}
-			else if((theHeading>135)&&(theHeading<225)){
-				percent = 100 - (theHeading-135)*100/90;
-				currTrackMark = `<img src='static/img/markCurrN.png' style='display: block;position: fixed;bottom:0;left:${percent}%;' class='vert'>`;
-			}
-			else if(theHeading==225){
-				currTrackMark = `<img src='static/img/markCurrNE.png' style='display: block;position: fixed;bottom:0;left:0;' class='vert'>`;
-			}
-			else if((theHeading>225)&&(theHeading<315)){
-				percent = 100 - (theHeading-225)*100/90;
-				currTrackMark = `<img src='static/img/markCurrE.png' style='display:block;position:fixed;left:0;top:${percent}%;' class='hor'>`;
-			}
-			else if(theHeading==315){
-				currTrackMark = `<img src='static/img/markCurrNE.png' style='display: block;position: absolute;top:0;left:0;' class='vert'>`;
+			if(theHeading !== null){
+				if((theHeading>315)&&(theHeading<=360)){
+					percent = 100 - (theHeading - 315)*100/90;
+					currTrackMark = `<img src='static/img/markCurrN.png' style='display:block;position:fixed;top:0;right:${percent}%;' class='vert'>`;
+				} 
+				else if((theHeading>=0)&&(theHeading<45)){
+					percent = (theHeading+45)*100/90;
+					currTrackMark = `<img src='static/img/markCurrN.png' style='display: block;position: fixed;top:0;left:${percent}%;' class='vert'>`;
+				}
+				else if(theHeading == 45){
+					currTrackMark = `<img src='static/img/markCurrSE.png' style='display: block;position: fixed;top:0;right:0;' class='vert'>`;
+				}
+				else if((theHeading > 45) && (theHeading < 135)){
+					percent = 100 - (theHeading-45)*100/90;
+					currTrackMark = `<img src='static/img/markCurrE.png' style='display: block;position: fixed;right:0;bottom:${percent}%;' class='hor'>`;
+				}
+				else if(theHeading == 135){
+					currTrackMark = `<img src='static/img/markCurrNE.png' style='display: block;position: fixed;bottom:0;right:0;' class='vert'>`;
+				}
+				else if((theHeading>135)&&(theHeading<225)){
+					percent = 100 - (theHeading-135)*100/90;
+					currTrackMark = `<img src='static/img/markCurrN.png' style='display: block;position: fixed;bottom:0;left:${percent}%;' class='vert'>`;
+				}
+				else if(theHeading==225){
+					currTrackMark = `<img src='static/img/markCurrNE.png' style='display: block;position: fixed;bottom:0;left:0;' class='vert'>`;
+				}
+				else if((theHeading>225)&&(theHeading<315)){
+					percent = 100 - (theHeading-225)*100/90;
+					currTrackMark = `<img src='static/img/markCurrE.png' style='display:block;position:fixed;left:0;top:${percent}%;' class='hor'>`;
+				}
+				else if(theHeading==315){
+					currTrackMark = `<img src='static/img/markCurrNE.png' style='display: block;position: absolute;top:0;left:0;' class='vert'>`;
+				}
 			}
 		}
 
@@ -824,17 +857,70 @@ return matches ? decodeURIComponent(matches[1]) : undefined;
 			responseBody += ` style='height:3em;width:3rem;' ></td><td>`;
 			if(mode.magnetic){
 				if(mode.toHeadingAlarm){
-					if(mode.toHeadingMagnetic) responseBody += dashboardMagHeadingTXT;
-					else  responseBody += dashboardHeadingTXT;
+					if(mode.toHeadingMagnetic) 
+						switch(mode.mode){
+						case 'track':
+						case 'heading':
+							responseBody += displayData[mode.mode]['variants'][1][1];
+							break;
+						default:
+							responseBody += displayData['track']['variants'][1][1];
+						}
+					else  {
+						switch(mode.mode){
+						case 'track':
+						case 'heading':
+							responseBody += displayData[mode.mode]['variants'][0][1];
+							break;
+						default:
+							responseBody += displayData['track']['variants'][0][1];
+						}
+					}
 				}
-				else responseBody += dashboardMagHeadingTXT;
+				else {
+					switch(mode.mode){
+					case 'track':
+					case 'heading':
+						responseBody += displayData[mode.mode]['variants'][1][1];
+						break;
+					default:
+						responseBody += displayData['track']['variants'][1][1];
+					}
+				}
 			}
 			else {
 				if(mode.toHeadingAlarm){
-					if(mode.toHeadingMagnetic) responseBody += dashboardMagHeadingTXT;
-					else  responseBody += dashboardHeadingTXT;
+					if(mode.toHeadingMagnetic){
+						switch(mode.mode){
+						case 'track':
+						case 'heading':
+							responseBody += displayData[mode.mode]['variants'][1][1];
+							break;
+						default:
+							responseBody += displayData['track']['variants'][1][1];
+						}
+					}
+					else{
+						switch(mode.mode){
+						case 'track':
+						case 'heading':
+							responseBody += displayData[mode.mode]['variants'][0][1];
+							break;
+						default:
+							responseBody += displayData['track']['variants'][0][1];
+						}
+					}
 				}
-				else responseBody += dashboardHeadingTXT;
+				else {
+					switch(mode.mode){
+					case 'track':
+					case 'heading':
+						responseBody += displayData[mode.mode]['variants'][0][1];
+						break;
+					default:
+						responseBody += displayData['track']['variants'][0][1];
+					}
+				}
 			}
 			responseBody += `<br> &nbsp; <input type='radio' name='toHeadingPrecision' value='10' `;
 			if(mode.toHeadingPrecision == 10) responseBody += 'checked';
