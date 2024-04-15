@@ -1,5 +1,5 @@
 [Русское описание](https://github.com/VladimirKalachikhin/e-inkDashboard/blob/master/README.ru-RU.md)  
-# e-ink Dashboard for SignalK [![License: CC BY-SA 4.0](https://img.shields.io/badge/License-CC%20BY--SA%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-sa/4.0/)
+# e-ink Dashboard for SignalK [![License: CC BY-NC-SA 4.0](screenshots/Cc-by-nc-sa_icon.svg)](https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en)
 
 ## v. 0.3
 The e-inkDashboard displaying some instruments, attached to SignalK on weak (and/or old) devices, such as e-ink readers.  
