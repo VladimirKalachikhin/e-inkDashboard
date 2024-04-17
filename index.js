@@ -119,7 +119,9 @@ plugin.start = function (options, restartPlugin) {
 </body>
 </html>
 	`;
-	fs.writeFileSync(__dirname+'/public/index.html',indexhtml);
+	const indexDir = __dirname+'/public';
+	if (!fs.existsSync(indexDir)) fs.mkdirSync(indexDir);
+	fs.writeFileSync(indexDir+'/index.html',indexhtml);
 	var tpv = {};
 	
 	// функция, реализующая функциональность сервера. Поскольку в node.js всё через жопу -- нельзя заставить уже имеющийся сервер выполнять дополнительные функции, надо организовать свой. Ага, на своём порту, б... Правда, вроде, есть Express, но оно тооооормоооозззззз.
