@@ -105,6 +105,15 @@ plugin.start = function (options, restartPlugin) {
 	else if(options.depthProp.feature.includes('DBT')) options.depthProp.feature = 'environment.depth.belowTransducer';
 	//app.debug('options:',options);
 	
+	// Если версия старая, будем сами выставлять notification, а если новая - 
+	// пусть это делает SignalK.
+	// Видимо, невозможно узнать версию SignalK из серверного плагина, поэтому
+	// проверяем наличие Notifications API, которое только с 2.8.0 ?
+	//let signalKold = typeof app.notify;	// Проверяем, старше ли SignalK 2.8.0 или нет.
+	//if(signalKold == "undefined") signalKold = true;
+	//else signalKold = false;
+	signalKold = true;	// Оказалось, что там всё равно ошибка в реализации, поэтому пока отключим.
+	
 	const indexhtml = `<!DOCTYPE html >
 <html>
 <head>
@@ -183,61 +192,70 @@ plugin.start = function (options, restartPlugin) {
 		}
 		//app.debug('mode:',mode);
 		// Интернационализация
-		if(request.headers['accept-language'].includes('ru')){
-		//if(false){
-			var dashboardCourseTXT = 'Истинный путь';
-			var dashboardHeadingTXT = 'Истинный курс';
-			var dashboardMagCourseTXT = 'Магнитный путь';
-			var dashboardMagHeadingTXT = 'Магнитный курс';
-			var dashboardMagVarTXT = 'Склонение';
-			var dashboardSpeedTXT = 'Скорость';
-			var dashboardMinSpeedAlarmTXT = 'Скорость меньше допустимой';
-			var dashboardMaxSpeedAlarmTXT = 'Скорость больше допустимой';
-			var dashboardSpeedMesTXT = 'км/ч';
-			var dashboardDepthTXT = 'Глубина';
-			var dashboardDepthAlarmTXT = 'Слишком мелко';
-			var dashboardDepthMesTXT = 'м';
-			var dashboardGNSSoldTXT = 'Данные от приборов устарели';
-			var dashboardDepthMenuTXT = 'Опасная глубина';
-			var dashboardMinSpeedMenuTXT = 'Минимальная скорость';
-			var dashboardMaxSpeedMenuTXT = 'Максимальная скорость';
-			var dashboardToCourseAlarmTXT = 'Отклонение от пути';
-			var dashboardToHeadingAlarmTXT = 'Отклонение от курса';
-			var dashboardKeysMenuTXT = 'Используйте клавиши для смены режимов';
-			var dashboardKeySetupTXT = 'Укажите назначение и нажмите клавишу для:';
-			var dashboardKeyNextTXT = 'Следующий режим';
-			var dashboardKeyPrevTXT = 'Предыдущий режим';
-			var dashboardKeyMenuTXT = 'Меню оповещений';
-			var dashboardKeyMagneticTXT = 'Магнитный курс';
-			var dashboardMOBTXT = 'Человек за бортом!';
+		var dashboardCourseTXT = 'Course';
+		var dashboardHeadingTXT = 'Heading';
+		var dashboardMagCourseTXT = 'Magnetic course';
+		var dashboardMagHeadingTXT = 'Magnetic heading';
+		var dashboardMagVarTXT = 'Magnetic variation';
+		var dashboardSpeedTXT = 'Velocity';
+		var dashboardMinSpeedAlarmTXT = 'Speed too high';
+		var dashboardMaxSpeedAlarmTXT = 'Speed too low';
+		var dashboardSpeedMesTXT = 'km/h';
+		var dashboardDepthTXT = 'Depth';
+		var dashboardDepthAlarmTXT = 'Too shallow';
+		var dashboardDepthMesTXT = 'm';
+		var dashboardGNSSoldTXT = 'Instrument data old';
+		var dashboardDepthMenuTXT = 'Shallow';
+		var dashboardMinSpeedMenuTXT = 'Min speed';
+		var dashboardMaxSpeedMenuTXT = 'Max speed';
+		var dashboardToCourseAlarmTXT = 'The course is bad';
+		var dashboardToHeadingAlarmTXT = 'The heading is bad';
+		var dashboardKeysMenuTXT = 'Use keys to switch the screen mode';
+		var dashboardKeySetupTXT = 'Select purpose and press key for:';
+		var dashboardKeyNextTXT = 'Next mode';
+		var dashboardKeyPrevTXT = 'Previous mode';
+		var dashboardKeyMenuTXT = 'Alarm menu';
+		var dashboardKeyMagneticTXT = 'Magnetic course';
+		var dashboardMOBTXT = 'A man overboard!';
+		//app.debug("request.headers['accept-language']:",request.headers['accept-language']);
+		let i18nFileName = request.headers['accept-language'].split(',',1)[0].split(';',1)[0].split('-',1)[0].toLowerCase()+'.json';	// хотя она и так должна быть LowerCase, но то должна.
+		//console.log('i18nFileName=',i18nFileName);
+		//i18nFileName = 'en.json'
+		let i18n;
+		try {
+			i18n = JSON.parse(fs.readFileSync(path.join(__dirname,'internationalisation/'+i18nFileName))); 	// синхронно читаем файл. Если асинхронно, то в кривом Node.js будет непонятно, на чём сработает response.write(file), и будет ошибка ERR_STREAM_WRITE_AFTER_END, или response.setHeader, и будет ошибка, что заголовки уже посланы
+			({	dashboardCourseTXT,
+				dashboardHeadingTXT,
+				dashboardMagCourseTXT,
+				dashboardMagHeadingTXT,
+				dashboardMagVarTXT,
+				dashboardSpeedTXT,
+				dashboardMinSpeedAlarmTXT,
+				dashboardMaxSpeedAlarmTXT,
+				dashboardSpeedMesTXT,
+				dashboardDepthTXT,
+				dashboardDepthAlarmTXT,
+				dashboardDepthMesTXT,
+				dashboardGNSSoldTXT,
+				dashboardDepthMenuTXT,
+				dashboardMinSpeedMenuTXT,
+				dashboardMaxSpeedMenuTXT,
+				dashboardToCourseAlarmTXT,
+				dashboardToHeadingAlarmTXT,
+				dashboardKeysMenuTXT,
+				dashboardKeySetupTXT,
+				dashboardKeyNextTXT,
+				dashboardKeyPrevTXT,
+				dashboardKeyMenuTXT,
+				dashboardKeyMagneticTXT,
+				dashboardMOBTXT
+				} = i18n);	// () тут обязательно, потому что не var {} = obj, и кривой JavaScript воспринимает {} как блок кода;
 		}
-		else {
-			var dashboardCourseTXT = 'Course';
-			var dashboardHeadingTXT = 'Heading';
-			var dashboardMagCourseTXT = 'Magnetic course';
-			var dashboardMagHeadingTXT = 'Magnetic heading';
-			var dashboardMagVarTXT = 'Magnetic variation';
-			var dashboardSpeedTXT = 'Velocity';
-			var dashboardMinSpeedAlarmTXT = 'Speed too high';
-			var dashboardMaxSpeedAlarmTXT = 'Speed too low';
-			var dashboardSpeedMesTXT = 'km/h';
-			var dashboardDepthTXT = 'Depth';
-			var dashboardDepthAlarmTXT = 'Too shallow';
-			var dashboardDepthMesTXT = 'm';
-			var dashboardGNSSoldTXT = 'Instrument data old';
-			var dashboardDepthMenuTXT = 'Shallow';
-			var dashboardMinSpeedMenuTXT = 'Min speed';
-			var dashboardMaxSpeedMenuTXT = 'Max speed';
-			var dashboardToCourseAlarmTXT = 'The course is bad';
-			var dashboardToHeadingAlarmTXT = 'The heading is bad';
-			var dashboardKeysMenuTXT = 'Use keys to switch the screen mode';
-			var dashboardKeySetupTXT = 'Select purpose and press key for:';
-			var dashboardKeyNextTXT = 'Next mode';
-			var dashboardKeyPrevTXT = 'Previous mode';
-			var dashboardKeyMenuTXT = 'Alarm menu';
-			var dashboardKeyMagneticTXT = 'Magnetic course';
-			var dashboardMOBTXT = 'A man overboard!';
-		}
+		catch (err) {
+			//app.debug(err.message);
+			app.setPluginError(`Internationalisation file:`+err.message);
+		};
+
 		if(inData.mode) mode.mode = inData.mode;
 		if(typeof inData.magnetic !== 'undefined') mode.magnetic = parseInt(inData.magnetic,10);
 		let magneticTurn;
@@ -263,19 +281,23 @@ plugin.start = function (options, restartPlugin) {
 			mode.maxSpeedValue = parseFloat(inData['maxSpeedValue']);
 			if(!mode.maxSpeedValue) mode.maxSpeedAlarm = false;
 
-			if(inData['toHeadingAlarmCheck']){	// запишем в mode.toHeadingAlarm что у нас, собственно, значит toHeading
-				switch(mode.mode){	// хотя здесь ещё может не быть mode.mode
-				case 'track':
-					if(mode.magnetic) mode.toHeadingAlarm = 'navigation.courseOverGroundMagnetic';
-					else mode.toHeadingAlarm = 'navigation.courseOverGroundTrue';
-				case 'heading':
-					if(mode.magnetic) mode.toHeadingAlarm = 'navigation.headingMagnetic';
-					else mode.toHeadingAlarm = 'navigation.headingTrue';
-				default:
-					mode.toHeadingAlarm = 'navigation.courseOverGroundTrue';
-				}
+			// запишем в mode.toHeadingAlarm что у нас, собственно, значит toHeading
+			switch(mode.mode){	// хотя здесь ещё может не быть mode.mode
+			case 'track':
+				if(mode.magnetic) mode.toHeadingAlarm = 'navigation.courseOverGroundMagnetic';
+				else mode.toHeadingAlarm = 'navigation.courseOverGroundTrue';
+			case 'heading':
+				if(mode.magnetic) mode.toHeadingAlarm = 'navigation.headingMagnetic';
+				else mode.toHeadingAlarm = 'navigation.headingTrue';
+			default:
+				mode.toHeadingAlarm = 'navigation.courseOverGroundTrue';
 			}
-			else mode.toHeadingAlarm = false;
+			let toRemovePath;
+			if(!inData['toHeadingAlarmCheck']){	
+				toRemovePath = mode.toHeadingAlarm;
+				mode.toHeadingAlarm = false;
+			}
+			//app.debug("inData['toHeadingAlarmCheck']:",inData['toHeadingAlarmCheck'],'mode.toHeadingAlarm:',mode.toHeadingAlarm);
 			mode.toHeadingValue = parseFloat(inData['toHeadingValue']);
 			mode.toHeadingPrecision = parseFloat(inData['toHeadingPrecision']);
 			mode.toHeadingMagnetic = mode.magnetic;
@@ -301,7 +323,7 @@ plugin.start = function (options, restartPlugin) {
 				}
 				else {
 					setSKzones(options.speedProp.feature,null,null);	// уберём границы значений
-					setSKnotification(options.speedProp.feature,null) 	// уберём оповещение
+					if(signalKold) setSKnotification(options.speedProp.feature,null) 	// уберём оповещение
 				}
 				// Глубина
 				if(mode.depthAlarm) {
@@ -309,29 +331,31 @@ plugin.start = function (options, restartPlugin) {
 					minVal = mode.minDepthValue;
 					zones.push({lower: 0, upper: minVal, state: "alarm"});
 					zones.push({lower: minVal, upper: maxVal, state: "normal"});
-					//app.debug('zones:',zones);
+					//app.debug("inData['submit'] zones:",zones);
 					setSKzones(options.depthProp.feature,zones);	// установим границы значений
 				}
 				else {
 					setSKzones(options.depthProp.feature,null,null);	// уберём границы значений
-					setSKnotification(options.depthProp.feature,null) 	// уберём оповещение
+					if(signalKold) setSKnotification(options.depthProp.feature,null) 	// уберём оповещение
 				}
 				// Направление
 				if(mode.toHeadingAlarm) {
 					let zones=[],minVal,maxVal;
 					minVal = mode.toHeadingValue-mode.toHeadingPrecision;
 					if(minVal<0) minVal = minVal+360;
+					minVal = minVal * Math.PI / 180;
 					maxVal = mode.toHeadingValue+mode.toHeadingPrecision;
 					if(maxVal>=360) maxVal = maxVal-360;
+					maxVal = maxVal * Math.PI / 180;
 					zones.push({lower: 0, upper: minVal, state: "alarm"});
-					zones.push({lower: maxVal, upper: 360, state: "alarm"});
+					zones.push({lower: maxVal, upper: 2*Math.PI, state: "alarm"});
 					zones.push({lower: minVal, upper: maxVal, state: "normal"});
 					//app.debug('zones:',zones);
 					setSKzones(mode.toHeadingAlarm,zones);	// установим границы значений
 				}
 				else {
-					setSKzones(mode.toHeadingAlarm,null,null);	// уберём границы значений
-					setSKnotification(mode.toHeadingAlarm,null) 	// уберём оповещение
+					setSKzones(toRemovePath,null,null);	// уберём границы значений
+					if(signalKold) setSKnotification(toRemovePath,null) 	// уберём оповещение
 				}
 			}
 		}
@@ -471,10 +495,10 @@ plugin.start = function (options, restartPlugin) {
 				header = dashboardMinSpeedAlarmTXT;
 				alarmJS = 'minSpeedAlarmSound();';
 				alarm = true;
-				if(options.updNotifications) setSKnotification(options.speedProp.feature,{method: ["sound", "visual"],state: "alarm",message: "Low speed!"}); 	// Установим оповещение
+				if(options.updNotifications && signalKold) setSKnotification(options.speedProp.feature,{method: ["sound", "visual"],state: "alarm",message: "Low speed!"}); 	// Установим оповещение
 			}
 			else{
-				if(options.updNotifications) setSKnotification(options.speedProp.feature,null); 	// Уберём оповещение
+				if(options.updNotifications && signalKold) setSKnotification(options.speedProp.feature,null); 	// Уберём оповещение
 			}
 		}
 		if(mode.maxSpeedAlarm && tpv['speed'] && (tpv['speed'].value != (null || undefined))) {
@@ -483,10 +507,10 @@ plugin.start = function (options, restartPlugin) {
 				header = dashboardMaxSpeedAlarmTXT;
 				alarmJS = 'maxSpeedAlarmSound();';
 				alarm = true;
-				if(options.updNotifications) setSKnotification(options.speedProp.feature,{method: ["sound", "visual"],state: "alarm",message: "Hight speed!"}); 	// Установим оповещение
+				if(options.updNotifications && signalKold) setSKnotification(options.speedProp.feature,{method: ["sound", "visual"],state: "alarm",message: "Hight speed!"}); 	// Установим оповещение
 			}
 			else{
-				if(options.updNotifications) setSKnotification(options.speedProp.feature,null); 	// Уберём оповещение
+				if(options.updNotifications && signalKold) setSKnotification(options.speedProp.feature,null); 	// Уберём оповещение
 			}
 		}
 		let theHeading=null, toHeadingAlarm=false;
@@ -504,11 +528,11 @@ plugin.start = function (options, restartPlugin) {
 					switch(mode.mode){
 					case 'track':
 						header = dashboardToCourseAlarmTXT;
-						if(options.updNotifications) setSKnotification(mode.toHeadingAlarm,{method: ["sound", "visual"],state: "alarm",message: "Course lost!"}); 	// Установим оповещение
+						if(options.updNotifications && signalKold) setSKnotification(mode.toHeadingAlarm,{method: ["sound", "visual"],state: "alarm",message: "Course lost!"}); 	// Установим оповещение
 						break;
 					case 'heading':
 						header = dashboardToHeadingAlarmTXT;
-						if(options.updNotifications) setSKnotification(mode.toHeadingAlarm,{method: ["sound", "visual"],state: "alarm",message: "Heading lost!"}); 	// Установим оповещение
+						if(options.updNotifications && signalKold) setSKnotification(mode.toHeadingAlarm,{method: ["sound", "visual"],state: "alarm",message: "Heading lost!"}); 	// Установим оповещение
 						break;
 					}
 					alarmJS = 'toHeadingAlarmSound();';
@@ -516,7 +540,7 @@ plugin.start = function (options, restartPlugin) {
 				}
 			}
 			else {
-				if(options.updNotifications) setSKnotification(mode.toHeadingAlarm,null); 	// Уберём оповещение
+				if(options.updNotifications && signalKold) setSKnotification(mode.toHeadingAlarm,null); 	// Уберём оповещение
 			}
 		}
 		if(mode.depthAlarm && tpv['depth'] && (tpv['depth'].value != (null || undefined))) {
@@ -525,10 +549,10 @@ plugin.start = function (options, restartPlugin) {
 				header = dashboardDepthAlarmTXT;
 				alarmJS = 'depthAlarmSound();';
 				alarm = true;
-				if(options.updNotifications) setSKnotification(options.depthProp.feature,{method: ["sound", "visual"],state: "alarm",message: "Shallow!"}); 	// Установим оповещение
+				if(options.updNotifications && signalKold) setSKnotification(options.depthProp.feature,{method: ["sound", "visual"],state: "alarm",message: "Shallow!"}); 	// Установим оповещение
 			}
 			else {
-				if(options.updNotifications) setSKnotification(options.depthProp.feature,null); 	// Уберём оповещение
+				if(options.updNotifications && signalKold) setSKnotification(options.depthProp.feature,null); 	// Уберём оповещение
 			}
 		}
 		//app.debug('alarm=',alarm,'mode.mode=',mode.mode,'mode.mob=',mode.mob);
@@ -1257,6 +1281,7 @@ jsTest();
 	
 	function setSKzones(path,zones,alarmMethod=["sound", "visual"]){
 	// Чисто потому что запись очень громоздкая
+	//app.debug('[setSKzones]','path=',path,'zones:',zones,'alarmMethod:',alarmMethod);
 	app.handleMessage(plugin.id, {
 		context: 'vessels.self',
 		updates: [
