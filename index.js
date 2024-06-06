@@ -1,3 +1,4 @@
+'use strict';
 module.exports = function (app) {
 /**/
 
@@ -107,13 +108,13 @@ plugin.start = function (options, restartPlugin) {
 	
 	// Если версия старая, будем сами выставлять notification, а если новая - 
 	// пусть это делает SignalK.
-	// Видимо, невозможно узнать версию SignalK из серверного плагина, поэтому
-	// проверяем наличие Notifications API, которое только с 2.8.0 ?
-	//let signalKold = typeof app.notify;	// Проверяем, старше ли SignalK 2.8.0 или нет.
-	//if(signalKold == "undefined") signalKold = true;
-	//else signalKold = false;
-	signalKold = true;	// Оказалось, что там всё равно ошибка в реализации, поэтому пока отключим.
-	
+	// Определим версию SignalK
+	let signalKold = app.config.version;	// это не версия плагина, как можно было бы подумать, а версия сервера.
+	if(signalKold[0]>2 || (signalKold[0]==2 && signalKold[1]>8) || (signalKold[0]==2 && signalKold[1]==8 && signalKold[2]>1)){
+		signalKold = false;
+	}
+	else signalKold = true;
+
 	const indexhtml = `<!DOCTYPE html >
 <html>
 <head>
@@ -156,10 +157,12 @@ plugin.start = function (options, restartPlugin) {
 					return;
 				}
 				//app.debug('filename',filename);
+				let file;
 				try {
 					file = fs.readFileSync(filename); 	// синхронно читаем файл. Если асинхронно, то в кривом Node.js будет непонятно, на чём сработает response.write(file), и будет ошибка ERR_STREAM_WRITE_AFTER_END, или response.setHeader, и будет ошибка, что заголовки уже посланы
 				}
 				catch (err) {
+					app.debug(err);
 					response.statusCode = 500;
 					response.setHeader('Content-Type', 'text/html; charset=utf-8');
 					response.write(err + "\n");
@@ -414,29 +417,73 @@ plugin.start = function (options, restartPlugin) {
 		
 		// Получение MOB
 		let mobPosition = null;
+		// Похоже, что автор Freeboard-SK индус. В любом случае - он дебил, и
+		// разницы между выключением режима и сменой режима не видит.
+		// Поэтому он выключает режим MOB установкой value.state = "normal"
+		// вместо value = null, как это указано в документации.
 		if(app.getSelfPath('notifications.mob.value')){
 			let value = app.getSelfPath('notifications.mob.value');
-			mode.mob = true;
-			if(value.position){	// Это GeoJSON
-				// поищем точку, указанную как текущая
-				let from=[],to;
-				for(let point of value.position.features){	// там не только точки, но и LineString
-					if((point.geometry.type == "Point")  && point.properties.current){
-						to = point.geometry.coordinates;
-						break;
-					}
-				}
-				if(to && app.getSelfPath('navigation.position.value')){
-					const selfLonLat = app.getSelfPath('navigation.position.value');
+			if(value && (value.state != "normal")){
+				mode.mob = true;
+				let from=[],to=[],selfLonLat;
+				if(selfLonLat=app.getSelfPath('navigation.position.value')){
 					from.push(selfLonLat.longitude,selfLonLat.latitude);
+				}
+				if(value.data && value.data.position){	// это MOB от Freeboard-SK
+					to.push(value.data.position.longitude,value.data.position.latitude);
+				}
+				else if(value.position && value.position.features){	// Это GeoJSON
+					// поищем точку, указанную как текущая
+					for(let point of value.position.features){	// там не только точки, но и LineString
+						if((point.geometry.type == "Point")  && point.properties.current){
+							to = point.geometry.coordinates;
+							break;
+						};
+					};
+				}
+				else {
+					if(value.position){
+						const s = JSON.stringify(value.position);
+						if(s.includes('longitude') && s.includes('latitude')){
+							to.push(value.position.longitude,value.position.latitude);
+						}
+						else if(s.includes('lng') && s.includes('lat')){
+							to.push(value.position.lng,value.position.lat);
+						}
+						else if(s.includes('lon') && s.includes('lat')){
+							to.push(value.position.lon,value.position.lat);
+						}
+						else if(Array.isArray(value.position)){
+							to=value.position;
+						};
+					}
+					else{
+						const s = JSON.stringify(value);
+						if(s.includes('longitude') && s.includes('latitude')){
+							to.push(value.longitude,value.latitude);
+						}
+						else if(s.includes('lng') && s.includes('lat')){
+							to.push(value.lng,value.lat);
+						}
+						else if(s.includes('lon') && s.includes('lat')){
+							to.push(value.lon,value.lat);
+						}
+						else if(Array.isArray(value)){
+							to=value.position;
+						};
+					};
+				};
+				if(to.length){
+					to.forEach((coord)=>parseFloat(coord));
+					if(isNaN(to[0]) || isNaN(to[1])) to=[];
 				}
 				mobPosition = [from,to];
 				//app.debug('mob data from server',mobPosition);
 			}
-		}
-		else {
-			mode.mob = false;
-		}
+			else {
+				mode.mob = false;
+			};
+		};
 		//app.debug('mode.mob =',mode.mob);
 
 		// перепишем теневое значение mode актуальным, раз такова воля юзера
