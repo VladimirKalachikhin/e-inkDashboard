@@ -110,10 +110,12 @@ plugin.start = function (options, restartPlugin) {
 	// пусть это делает SignalK.
 	// Определим версию SignalK
 	let signalKold = app.config.version;	// это не версия плагина, как можно было бы подумать, а версия сервера.
-	if(signalKold[0]>2 || (signalKold[0]==2 && signalKold[1]>8) || (signalKold[0]==2 && signalKold[1]==8 && signalKold[2]>1)){
+	if(signalKold[0]>2 || (signalKold[0]==2 && signalKold[2]>8) || (signalKold[0]==2 && signalKold[2]==8 && signalKold[4]>1)){
 		signalKold = false;
 	}
 	else signalKold = true;
+	//signalKold = true;	// Оно всё равно с ошибкой, отключаем
+	//app.debug('signalKold=',signalKold);
 
 	const indexhtml = `<!DOCTYPE html >
 <html>
@@ -133,11 +135,36 @@ plugin.start = function (options, restartPlugin) {
 	if (!fs.existsSync(indexDir)) fs.mkdirSync(indexDir);
 	fs.writeFileSync(indexDir+'/index.html',indexhtml);
 	var tpv = {};
+	var modes = {};	// состояние каждого клиента
 	
 	// функция, реализующая функциональность сервера. Поскольку в node.js всё через жопу -- нельзя заставить уже имеющийся сервер выполнять дополнительные функции, надо организовать свой. Ага, на своём порту, б... Правда, вроде, есть Express, но оно тооооормоооозззззз.
 	function dashboardServer(request, response) { 	
-		//app.debug('request:',request.headers['accept-language']);
 		//app.debug('request:',request);
+		//app.debug('request:',request.headers['accept-language']);
+		//app.debug('request:',request.headers.cookie);
+		
+		// чёта cookie-parser нету. ну сделаем свой, чё.
+		var cookies = request.headers.cookie;
+		if(cookies){
+			cookies.split(';');
+			//app.debug('cookies:',typeof cookies,cookies);
+			// Какая-то фигня. В доке https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/split
+			// ясно сказано: "If separator does not occur in str, the returned array contains one element consisting of the entire string."
+			// однако мы наблюдаем, что возвращается строка...
+			if(typeof cookies == 'string') cookies = [cookies];
+			cookies.forEach((str,i) => {
+				str = str.split('=');
+				str[0] = '"'+str[0].trim()+'" : ';
+				if(str[1][0]!='{') str[1] = '"'+str[1].trim()+'"';
+				str = str.join('');
+				cookies[i] = str;
+				//app.debug(str);
+			});
+			cookies = JSON.parse('{'+cookies.join(',')+'}');
+		}
+		else cookies = {};
+		//app.debug('cookies:',cookies);
+
 		
 		// Serve static files
 		let uri = url.parse(request.url).pathname;	
@@ -186,14 +213,32 @@ plugin.start = function (options, restartPlugin) {
 		}
         
     	// Serve index.
+    	/* Идея гонять сессию через запрос единственно верная для принятого способа
+    	обновления страницы. Но тогда клиент не идентифицуем, и, скажем, по перезагрузке клиентского
+    	устройства клиент будет новым, и не восстановятся оповещения. Кроме того, если делать
+    	установку "зон" в SignalK, то надо делать и удаление - не всех имеющихся зон, а именно выставленных,
+    	и даже - выставленных этим клиентом. Т.е., клиента надо идентифицировать.
+    	Идентифицировать через куку, ибо фингерпринт - это извращение и всё равно для абсолютно тупого клиента
+    	ненадёжно.
+    	Однако, в куку кладётся только идентификатор, а не вся сессия. Так сохраняется
+    	работоспособность совсем тупых клиентов, которые не умеют ни javascript, ни даже куки.
+    	*/
+		let mode = {}; 	// все данные конкретного клиента. Гоняются к клиенту и обратно в переменной session
 		//app.debug('request.url',request.url);
+		//app.debug("modes:",modes);
 		const inData = url.parse(request.url,true).query;
 		//app.debug('inData:',inData);
-		let mode = {}; 	// все данные конкретного клиента. Гоняются к клиенту и обратно в переменной session
-		if(inData.session) {
-			mode = JSON.parse(inData.session);
+		if(cookies['e-inkDashboardInstance']){
+			//app.debug('Установим идентификатор клиента в',cookies['e-inkDashboardInstance']);
+			mode.instance = cookies['e-inkDashboardInstance'];
 		}
+		else mode.instance = generateUUID();
+		if(modes[mode.instance]) mode = modes[mode.instance];
+		else if(inData.session) {
+			mode = JSON.parse(inData.session);
+		};
 		//app.debug('mode:',mode);
+		//app.debug('mode.instance:',mode.instance);
 		// Интернационализация
 		var dashboardCourseTXT = 'Course';
 		var dashboardHeadingTXT = 'Heading';
@@ -272,19 +317,23 @@ plugin.start = function (options, restartPlugin) {
 		if(inData['submit']) {
 			//app.debug('inData',inData);
 			//app.debug('mode',mode);
+			const previous_depthAlarm = mode.depthAlarm;
 			mode.depthAlarm = inData['depthAlarm'];
 			mode.minDepthValue = parseFloat(inData['minDepthValue']);
 			if(!mode.minDepthValue) mode.depthAlarm = false;
 
+			const previous_minSpeedAlarm = mode.minSpeedAlarm;
 			mode.minSpeedAlarm = inData['minSpeedAlarm'];
 			mode.minSpeedValue = parseFloat(inData['minSpeedValue']);
 			if(!mode.minSpeedValue) mode.minSpeedAlarm = false;
 
+			const previous_maxSpeedAlarm = mode.maxSpeedAlarm;
 			mode.maxSpeedAlarm = inData['maxSpeedAlarm'];
 			mode.maxSpeedValue = parseFloat(inData['maxSpeedValue']);
 			if(!mode.maxSpeedValue) mode.maxSpeedAlarm = false;
 
 			// запишем в mode.toHeadingAlarm что у нас, собственно, значит toHeading
+			const previous_toHeadingAlarm = mode.toHeadingAlarm;
 			switch(mode.mode){	// хотя здесь ещё может не быть mode.mode
 			case 'track':
 				if(mode.magnetic) mode.toHeadingAlarm = 'navigation.courseOverGroundMagnetic';
@@ -310,37 +359,43 @@ plugin.start = function (options, restartPlugin) {
 			// Считаем, что кроме нас границы никто не ставит, потому что если ставит, то как в них разобраться, чтобы изменить нужное? Агащазкакже, не ставит...
 			// Кароче, облом. Изменить meta не удаётся. Кароче, оказалось, что для meta есть специальный синтаксис. Б...
 			// Скорость
+			//app.debug('mode',mode);
 			if(options.updNotifications){
+				// Скорость
 				if(mode.minSpeedAlarm || mode.maxSpeedAlarm){
 					let zones=[],minVal=0,maxVal=102.2;
 					if(mode.minSpeedAlarm) {
 						minVal = mode.minSpeedValue*1000/(60*60);
-						zones.push({lower: 0, upper: minVal, state: "alarm"});
+						zones.push({lower: 0, upper: minVal, state: "alarm", message: mode.instance});
 					}
 					if(mode.maxSpeedAlarm) {
 						maxVal = mode.maxSpeedValue*1000/(60*60);
-						zones.push({lower: maxVal, upper: 102.2, state: "alarm"});
+						zones.push({lower: maxVal, upper: 102.2, state: "alarm", message: mode.instance});
 					}
-					zones.push({lower: minVal, upper: maxVal, state: "normal"});
-					setSKzones(options.speedProp.feature,zones);	// установим границы значений
+					zones.push({lower: minVal, upper: maxVal, state: "normal", message: mode.instance});
+					setSKzones(options.speedProp.feature,zones,mode.instance);	// установим границы значений
 				}
 				else {
-					setSKzones(options.speedProp.feature,null,null);	// уберём границы значений
-					if(signalKold) setSKnotification(options.speedProp.feature,null) 	// уберём оповещение
-				}
+					if(previous_minSpeedAlarm || previous_maxSpeedAlarm){	// будем дёргать сервер только если действительно произошли изменения
+						setSKzones(options.speedProp.feature,null,mode.instance,null);	// уберём границы значений
+						if(signalKold) setSKnotification(options.speedProp.feature,null) 	// уберём оповещение
+					};
+				};
 				// Глубина
 				if(mode.depthAlarm) {
 					let zones=[],minVal=0,maxVal=11000;
 					minVal = mode.minDepthValue;
-					zones.push({lower: 0, upper: minVal, state: "alarm"});
-					zones.push({lower: minVal, upper: maxVal, state: "normal"});
+					zones.push({lower: 0, upper: minVal, state: "alarm", message: mode.instance});
+					zones.push({lower: minVal, upper: maxVal, state: "normal", message: mode.instance});
 					//app.debug("inData['submit'] zones:",zones);
-					setSKzones(options.depthProp.feature,zones);	// установим границы значений
+					setSKzones(options.depthProp.feature,zones,mode.instance);	// установим границы значений
 				}
 				else {
-					setSKzones(options.depthProp.feature,null,null);	// уберём границы значений
-					if(signalKold) setSKnotification(options.depthProp.feature,null) 	// уберём оповещение
-				}
+					if(previous_depthAlarm){	// будем дёргать сервер только если действительно произошли изменения
+						setSKzones(options.depthProp.feature,null,mode.instance,null);	// уберём границы значений
+						if(signalKold) setSKnotification(options.depthProp.feature,null) 	// уберём оповещение
+					};
+				};
 				// Направление
 				if(mode.toHeadingAlarm) {
 					let zones=[],minVal,maxVal;
@@ -350,18 +405,20 @@ plugin.start = function (options, restartPlugin) {
 					maxVal = mode.toHeadingValue+mode.toHeadingPrecision;
 					if(maxVal>=360) maxVal = maxVal-360;
 					maxVal = maxVal * Math.PI / 180;
-					zones.push({lower: 0, upper: minVal, state: "alarm"});
-					zones.push({lower: maxVal, upper: 2*Math.PI, state: "alarm"});
-					zones.push({lower: minVal, upper: maxVal, state: "normal"});
+					zones.push({lower: 0, upper: minVal, state: "alarm", message: mode.instance});
+					zones.push({lower: maxVal, upper: 2*Math.PI, state: "alarm", message: mode.instance});
+					zones.push({lower: minVal, upper: maxVal, state: "normal", message: mode.instance});
 					//app.debug('zones:',zones);
-					setSKzones(mode.toHeadingAlarm,zones);	// установим границы значений
+					setSKzones(mode.toHeadingAlarm,zones,mode.instance);	// установим границы значений
 				}
 				else {
-					setSKzones(toRemovePath,null,null);	// уберём границы значений
-					if(signalKold) setSKnotification(toRemovePath,null) 	// уберём оповещение
-				}
-			}
-		}
+					if(previous_toHeadingAlarm){	// будем дёргать сервер только если действительно произошли изменения
+						setSKzones(toRemovePath,null,mode.instance,null);	// уберём границы значений
+						if(signalKold) setSKnotification(toRemovePath,null) 	// уберём оповещение
+					};
+				};
+			};
+		};
 
 		// Получение приборов
 		//var tpv = {};
@@ -483,12 +540,18 @@ plugin.start = function (options, restartPlugin) {
 			else {
 				mode.mob = false;
 			};
+		}
+		else {
+			mode.mob = false;
 		};
 		//app.debug('mode.mob =',mode.mob);
 
 		// перепишем теневое значение mode актуальным, раз такова воля юзера
-		const modeStr = JSON.stringify(mode);
-		if(modeStr != inData.session) inData.session = modeStr;	
+		// здесь фиксируется то состояние mode, которое "нормальное"
+		// дальше mode меняется в зависимости от ситуации, но это как бы временное:
+		// оно отражается в интерфейсе, но не является текущим состоянием
+		inData.session = JSON.stringify(mode);
+		modes[mode.instance] = mode;
 
 		// Поехали
 		// типы данных, которые, собственно, будем показывать 
@@ -542,7 +605,7 @@ plugin.start = function (options, restartPlugin) {
 				header = dashboardMinSpeedAlarmTXT;
 				alarmJS = 'minSpeedAlarmSound();';
 				alarm = true;
-				if(options.updNotifications && signalKold) setSKnotification(options.speedProp.feature,{method: ["sound", "visual"],state: "alarm",message: "Low speed!"}); 	// Установим оповещение
+				if(options.updNotifications && signalKold) setSKnotification(options.speedProp.feature,{method: ["sound", "visual"],state: "alarm",message: mode.instance}); 	// Установим оповещение
 			}
 			else{
 				if(options.updNotifications && signalKold) setSKnotification(options.speedProp.feature,null); 	// Уберём оповещение
@@ -554,7 +617,7 @@ plugin.start = function (options, restartPlugin) {
 				header = dashboardMaxSpeedAlarmTXT;
 				alarmJS = 'maxSpeedAlarmSound();';
 				alarm = true;
-				if(options.updNotifications && signalKold) setSKnotification(options.speedProp.feature,{method: ["sound", "visual"],state: "alarm",message: "Hight speed!"}); 	// Установим оповещение
+				if(options.updNotifications && signalKold) setSKnotification(options.speedProp.feature,{method: ["sound", "visual"],state: "alarm",message: mode.instance}); 	// Установим оповещение
 			}
 			else{
 				if(options.updNotifications && signalKold) setSKnotification(options.speedProp.feature,null); 	// Уберём оповещение
@@ -573,30 +636,34 @@ plugin.start = function (options, restartPlugin) {
 				if(maxHeading>=360) maxHeading = maxHeading-360;
 				if((theHeading < minHeading) || (theHeading > maxHeading)) {
 					switch(mode.mode){
-					case 'track':
-						header = dashboardToCourseAlarmTXT;
-						if(options.updNotifications && signalKold) setSKnotification(mode.toHeadingAlarm,{method: ["sound", "visual"],state: "alarm",message: "Course lost!"}); 	// Установим оповещение
-						break;
 					case 'heading':
 						header = dashboardToHeadingAlarmTXT;
-						if(options.updNotifications && signalKold) setSKnotification(mode.toHeadingAlarm,{method: ["sound", "visual"],state: "alarm",message: "Heading lost!"}); 	// Установим оповещение
+						if(options.updNotifications && signalKold) setSKnotification(mode.toHeadingAlarm,{method: ["sound", "visual"],state: "alarm",message: mode.instance}); 	// Установим оповещение
 						break;
+					case 'track':
+					default:
+						mode.mode = 'track';
+						header = dashboardToCourseAlarmTXT;
+						if(options.updNotifications && signalKold) setSKnotification(mode.toHeadingAlarm,{method: ["sound", "visual"],state: "alarm",message: mode.instance}); 	// Установим оповещение
 					}
 					alarmJS = 'toHeadingAlarmSound();';
 					alarm = true;
 				}
+				else{
+					if(options.updNotifications && signalKold) setSKnotification(mode.toHeadingAlarm,null); 	// Уберём оповещение
+				};
 			}
 			else {
 				if(options.updNotifications && signalKold) setSKnotification(mode.toHeadingAlarm,null); 	// Уберём оповещение
-			}
-		}
+			};
+		};
 		if(mode.depthAlarm && tpv['depth'] && (tpv['depth'].value != (null || undefined))) {
 			if(tpv['depth'].value <= mode.minDepthValue) {
 				mode.mode = 'depth';
 				header = dashboardDepthAlarmTXT;
 				alarmJS = 'depthAlarmSound();';
 				alarm = true;
-				if(options.updNotifications && signalKold) setSKnotification(options.depthProp.feature,{method: ["sound", "visual"],state: "alarm",message: "Shallow!"}); 	// Установим оповещение
+				if(options.updNotifications && signalKold) setSKnotification(options.depthProp.feature,{method: ["sound", "visual"],state: "alarm",message: mode.instance}); 	// Установим оповещение
 			}
 			else {
 				if(options.updNotifications && signalKold) setSKnotification(options.depthProp.feature,null); 	// Уберём оповещение
@@ -780,9 +847,9 @@ plugin.start = function (options, restartPlugin) {
 				}
 				else if(theHeading==315){
 					currTrackMark = `<img src='static/img/markCurrNE.png' style='display: block;position: absolute;top:0;left:0;' class='vert'>`;
-				}
-			}
-		}
+				};
+			};
+		};
 
 		// DISPLAY:
 		let fontZ = Math.floor(symbol.length/3); 	// считая, что штатный размер шрифта позволяет разместить 4 символа на экране
@@ -880,6 +947,14 @@ if (handled) {
 }
 } // end function keySu
 
+let sendedInstance = "${mode.instance}";
+let instance = getCookie('e-inkDashboardInstance');
+if(!instance){
+	instance = sendedInstance;
+	let date = new Date(new Date().getTime()+1000*60*60*24*365).toGMTString();
+	document.cookie = 'e-inkDashboardInstance='+instance+'; expires='+date+';';
+};
+
 function getCookie(name) {
 // возвращает cookie с именем name, если есть, если нет, то undefined
 name=name.trim();
@@ -889,7 +964,7 @@ var matches = document.cookie.match(new RegExp(
 );
 //console.log('matches',matches);
 return matches ? decodeURIComponent(matches[1]) : undefined;
-}
+};// end function getCookie
 
 </script>
 		`;
@@ -1326,9 +1401,29 @@ jsTest();
 	return bearing;
 	} // end function bearing
 	
-	function setSKzones(path,zones,alarmMethod=["sound", "visual"]){
-	// Чисто потому что запись очень громоздкая
+	function setSKzones(path,zones,instance,alarmMethod=["sound", "visual"]){
 	//app.debug('[setSKzones]','path=',path,'zones:',zones,'alarmMethod:',alarmMethod);
+	// надо удалить зоны. Но не все, а только свои
+	if(!zones){	
+		//app.debug('path',path);
+		//app.debug(app.getSelfPath(path).meta.zones);
+		zones = app.getSelfPath(path).meta.zones;
+		if(zones){
+			let tmp_zones = [];
+			for(const i in zones){
+				// Правильно было бы delete zones[i]; при zones[i].message == instance
+				// Авотхрен. Тогда ничего не удалится, просто элемент становится empty. 
+				// Хотя в этом идиотском языке нет типа empty, элемент такого типа есть.
+				if(zones[i].message && (zones[i].message != instance)){
+					//app.debug('к НЕ удалению',zones[i]);
+					tmp_zones.push(zones[i]);
+				};
+			};
+			zones = tmp_zones;
+			//app.debug(zones.length,zones);
+			if(!zones.length) zones = null;
+		};
+	};
 	app.handleMessage(plugin.id, {
 		context: 'vessels.self',
 		updates: [
@@ -1368,6 +1463,24 @@ jsTest();
 	});			
 	} // end function setSKnotification
 	
+	function generateUUID() { 
+	// Public Domain/MIT https://stackoverflow.com/questions/105034/how-to-create-a-guid-uuid
+	// мне пофигу их соображеия о "небезопасности", ибо они вне контекста
+		var d = new Date().getTime();//Timestamp
+		var d2 = ((typeof performance !== 'undefined') && performance.now && (performance.now()*1000)) || 0;//Time in microseconds since page-load or 0 if unsupported
+		return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+		    var r = Math.random() * 16;//random number between 0 and 16
+		    if(d > 0){//Use timestamp until depleted
+		        r = (d + r)%16 | 0;
+		        d = Math.floor(d/16);
+		    } else {//Use microseconds since page-load if supported
+		        r = (d2 + r)%16 | 0;
+		        d2 = Math.floor(d2/16);
+		    }
+		    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+		});
+	}; // end function generateUUID
+
 }; // end function plugin.start
 
 plugin.stop = function () {
