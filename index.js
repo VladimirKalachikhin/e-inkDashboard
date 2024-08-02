@@ -41,7 +41,7 @@ plugin.schema = {
 						'Depth below keel (DBK)',
 						'Depth below transducer (DBT)',
 					],
-					'default': 'Depth below surface (DBS)'
+					'default': 'Depth below transducer (DBT)'
 				},
 			},
 		},
@@ -124,7 +124,7 @@ plugin.start = function (options, restartPlugin) {
 	<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
 	<meta http-equiv="Pragma" content="no-cache" />
 	<meta http-equiv="Expires" content="0" />
-	<meta http-equiv='refresh' content='0;url=http://${dashboardHost}:${dashboardPort}/'>
+	<meta http-equiv='refresh' content='1;url=http://${dashboardHost}:${dashboardPort}/'>
 </head>
 <body style="text-align: center;">
 <span style="font-size: 600%;"><br><br>Dashboard not run</span>

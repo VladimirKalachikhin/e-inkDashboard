@@ -1,6 +1,6 @@
 {
   "name": "e-inkdashboard",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "description": "e-ink screens - optimized dashboard with some Signal K instruments",
   "main": "index.js",
   "author": "Vladimir Kalachikhin",
@@ -29,6 +29,7 @@
   "files": [
     "screenshots/",
     "static/",
+    "internationalisation/",
     "public/"
   ],
   "dependencies": {},
